@@ -57,3 +57,42 @@ function closePageModal(){document.getElementById('page-editor').style.display='
 async function editPage(id){try{const r=await fetch(API+'/pages',{headers:headers()});const pages=await r.json();const pg=pages.find(p=>p.id===id);if(!pg)return;document.getElementById('pg-id').value=pg.id;document.getElementById('pg-slug').value=pg.slug;document.getElementById('pg-order').value=pg.order_index||0;document.getElementById('pg-title-ro').value=pg.title_ro||'';document.getElementById('pg-title-ru').value=pg.title_ru||'';document.getElementById('pg-title-en').value=pg.title_en||'';document.getElementById('pg-content-ro').value=pg.content_ro||'';document.getElementById('pg-content-ru').value=pg.content_ru||'';document.getElementById('pg-content-en').value=pg.content_en||'';document.getElementById('pg-active').value=pg.active;document.getElementById('page-modal-title').textContent='Editează: '+pg.title_ro;openPageModal();}catch(e){alert('Eroare!');}}
 async function savePage(e){e.preventDefault();const id=document.getElementById('pg-id').value;const fd=new FormData();fd.append('slug',document.getElementById('pg-slug').value);fd.append('order_index',document.getElementById('pg-order').value);fd.append('title_ro',document.getElementById('pg-title-ro').value);fd.append('title_ru',document.getElementById('pg-title-ru').value);fd.append('title_en',document.getElementById('pg-title-en').value);fd.append('content_ro',document.getElementById('pg-content-ro').value);fd.append('content_ru',document.getElementById('pg-content-ru').value);fd.append('content_en',document.getElementById('pg-content-en').value);fd.append('active',document.getElementById('pg-active').value);const img=document.getElementById('pg-image').files[0];if(img)fd.append('image',img);try{const r=await fetch(id?API+'/pages/'+id:API+'/pages',{method:id?'PUT':'POST',headers:headers(),body:fd});if(r.ok){closePageModal();loadPages();}else{const d=await r.json();alert(d.error||'Eroare!');}}catch(e){alert('Eroare!');}}
 async function deletePage(id){if(!confirm('Ștergi pagina?'))return;try{await fetch(API+'/pages/'+id,{method:'DELETE',headers:headers()});loadPages();}catch(e){alert('Eroare!');}}
+
+async function changePassword(e) {
+    e.preventDefault();
+    const current = document.getElementById('cp-current').value;
+    const newPwd  = document.getElementById('cp-new').value;
+    const confirm = document.getElementById('cp-confirm').value;
+    const msg     = document.getElementById('cp-msg');
+
+    msg.style.display = 'none';
+
+    if (newPwd !== confirm) {
+        msg.textContent = 'Parolele noi nu coincid.';
+        msg.style.color = '#ff4d4d';
+        msg.style.display = 'block';
+        return;
+    }
+
+    try {
+        const r = await fetch(API + '/change-password', {
+            method: 'POST',
+            headers: jsonHeaders(),
+            body: JSON.stringify({ current_password: current, new_password: newPwd })
+        });
+        const data = await r.json();
+        if (r.ok) {
+            msg.textContent = 'Parola a fost schimbata cu succes.';
+            msg.style.color = '#4CAF50';
+            document.getElementById('change-password-form').reset();
+        } else {
+            msg.textContent = data.error || 'Eroare la schimbarea parolei.';
+            msg.style.color = '#ff4d4d';
+        }
+        msg.style.display = 'block';
+    } catch (err) {
+        msg.textContent = 'Eroare de conexiune.';
+        msg.style.color = '#ff4d4d';
+        msg.style.display = 'block';
+    }
+}

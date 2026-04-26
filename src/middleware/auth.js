@@ -1,40 +1,26 @@
-import { createClient } from '@supabase/supabase-js';
+const jwt = require('jsonwebtoken');
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY // sb_secret_...
-);
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    console.error('FATAL: JWT_SECRET environment variable is not set. Refusing to start.');
+    process.exit(1);
+}
 
-const authenticate = async (req, res, next) => {
-  try {
+const authenticate = (req, res, next) => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Unauthorized' });
+        return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const token = authHeader.replace('Bearer ', '');
+    const token = authHeader.split(' ')[1];
 
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-
-    if (error || !user) {
-      return res.status(401).json({ error: 'Invalid token' });
+    try {
+        req.admin = jwt.verify(token, JWT_SECRET);
+        next();
+    } catch (err) {
+        return res.status(403).json({ error: 'Forbidden' });
     }
-
-    const role =
-      user.user_metadata?.role ||
-      user.raw_user_meta_data?.role;
-
-    if (role !== 'admin') {
-      return res.status(403).json({ error: 'Admin only' });
-    }
-
-    req.admin = user;
-    next();
-  } catch (err) {
-    console.error('[auth]', err);
-    return res.status(401).json({ error: 'Authentication failed' });
-  }
 };
 
-export default authenticate;
+module.exports = authenticate;

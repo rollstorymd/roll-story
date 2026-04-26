@@ -127,6 +127,20 @@
             <div id="pages-admin-list" class="pages-list"></div>
         </div>
 
+        <div class="card">
+            <h2><i class="ph ph-lock-key"></i> Schimbă Parola</h2>
+            <form id="change-password-form" class="form-grid" onsubmit="changePassword(event)">
+                <div><label>Parola Curentă</label><input type="password" id="cp-current" required></div>
+                <div><label>Parola Nouă</label><input type="password" id="cp-new" required minlength="8"></div>
+                <div><label>Confirmă Parola Nouă</label><input type="password" id="cp-confirm" required minlength="8"></div>
+                <div></div>
+                <div style="grid-column:span 2">
+                    <button type="submit">Schimbă Parola</button>
+                    <p id="cp-msg" style="margin-top:10px;font-size:14px;display:none"></p>
+                </div>
+            </form>
+        </div>
+
     </div>
 
     <div id="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999" onclick="closeMenuModal()"></div>
