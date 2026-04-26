@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Roll Story — Pagină informativă.">
+    <title id="page-title">Roll Story</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+    <div class="global-loader" id="global-loader">
+        <div class="loader-spinner" id="loader-spinner"></div>
+        <div class="loader-text" id="loader-text">Roll Story</div>
+    </div>
+
+    <header id="main-header">
+        <div class="nav-container">
+            <div class="logo"><a href="/"><span>ROLL STORY</span></a></div>
+            <nav class="nav-links" id="nav-links">
+                <a href="/menu.html" data-lang-key="nav_menu">Meniu</a>
+                <a href="/about.html" data-lang-key="nav_about">Despre Noi</a>
+                <a href="/ingredients.html" data-lang-key="nav_ingredients">Ingrediente</a>
+                <a href="/gallery.html" data-lang-key="nav_gallery">Galerie</a>
+                <a href="/contact.html" data-lang-key="nav_contact">Contact</a>
+                <div class="lang-switch">
+                    <button class="lang-btn active" data-lang="ro">RO</button>
+                    <button class="lang-btn" data-lang="ru">RU</button>
+                    <button class="lang-btn" data-lang="en">EN</button>
+                </div>
+            </nav>
+            <div class="lang-switch" id="desktop-lang">
+                <button class="lang-btn active" data-lang="ro">RO</button>
+                <button class="lang-btn" data-lang="ru">RU</button>
+                <button class="lang-btn" data-lang="en">EN</button>
+            </div>
+            <div class="hamburger" id="hamburger" onclick="toggleMobileNav()">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+    </header>
+
+    <main class="container page-fade-in">
+        <div id="static-page-container">
+            <h1 class="section-title" id="static-page-title">...</h1>
+            <div class="static-page-content" id="static-page-body"></div>
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <div class="footer-content">
+            <div class="footer-brand"><h3>ROLL STORY</h3><p data-lang-key="footer_desc">Premium Shawarma &amp; Crepes în Soroca.</p><div class="social-icons" id="footer-social"></div></div>
+            <div class="footer-links" id="footer-nav-links"><h4 data-lang-key="footer_nav">NAVIGARE</h4><a href="/menu.html" data-lang-key="nav_menu">Meniu</a><a href="/about.html" data-lang-key="nav_about">Despre Noi</a><a href="/contact.html" data-lang-key="nav_contact">Contact</a></div>
+            <div class="footer-contact"><h4>CONTACT</h4><p>Str. Independenței 79/1, Soroca</p><p>+373 610 55 561</p></div>
+        </div>
+        <div class="footer-bottom"><p>&copy; 2026 Roll Story. <a href="/admin/login.html" style="color:var(--color-text-muted);margin-left:10px;text-decoration:none;"><i class="ph ph-lock"></i></a></p></div>
+    </footer>
+
+    <div class="sticky-order-bar">
+        <a href="/menu.html" class="order-btn"><i class="ph ph-fork-knife"></i><span data-lang-key="bar_menu">Meniu</span></a>
+        <a href="tel:+37361055561" class="order-btn" id="call-btn"><i class="ph ph-phone"></i><span data-lang-key="bar_call">Sună</span></a>
+        <a href="#" class="order-btn primary" id="wa-btn" target="_blank"><i class="ph ph-whatsapp-logo"></i><span data-lang-key="bar_whatsapp">WhatsApp</span></a>
+    </div>
+
+    <div class="social-sidebar" id="social-sidebar"></div>
+
+    <script src="/js/lang.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>

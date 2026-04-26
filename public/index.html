@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Roll Story — Meniu sănătos marca Roll Story. Șaorma premium, crepe, băuturi reci. Soroca, Moldova.">
+    <title>Roll Story | Premium Shawarma & Crepes — Soroca</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+    <div class="global-loader" id="global-loader">
+        <div class="loader-spinner" id="loader-spinner"></div>
+        <div class="loader-text" id="loader-text">Roll Story</div>
+    </div>
+
+    <header id="main-header">
+        <div class="nav-container">
+            <div class="logo">
+                <a href="/"><span>ROLL STORY</span></a>
+            </div>
+            <nav class="nav-links" id="nav-links">
+                <a href="/menu.html" data-lang-key="nav_menu">Meniu</a>
+                <a href="/about.html" data-lang-key="nav_about">Despre Noi</a>
+                <a href="/ingredients.html" data-lang-key="nav_ingredients">Ingrediente</a>
+                <a href="/gallery.html" data-lang-key="nav_gallery">Galerie</a>
+                <a href="/contact.html" data-lang-key="nav_contact">Contact</a>
+                <div class="lang-switch">
+                    <button class="lang-btn active" data-lang="ro">RO</button>
+                    <button class="lang-btn" data-lang="ru">RU</button>
+                    <button class="lang-btn" data-lang="en">EN</button>
+                </div>
+            </nav>
+            <div class="lang-switch" id="desktop-lang">
+                <button class="lang-btn active" data-lang="ro">RO</button>
+                <button class="lang-btn" data-lang="ru">RU</button>
+                <button class="lang-btn" data-lang="en">EN</button>
+            </div>
+            <div class="hamburger" id="hamburger" onclick="toggleMobileNav()">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+    </header>
+
+    <main class="container page-fade-in">
+        <section class="hero">
+            <div class="hero-content">
+                <div class="hero-badge" data-lang-key="hero_badge">PREMIUM STREET FOOD</div>
+                <h1><em>Roll Story</em><br><span data-lang-key="hero_title">100% Sănătos</span></h1>
+                <p data-lang-key="hero_subtitle">Descoperă gustul autentic al Shawarma-ului premium. Ingrediente proaspete, gusturi unice, doar la Roll Story — Soroca.</p>
+                <a href="/menu.html" class="hero-cta" data-lang-key="hero_cta">Comandă Acum</a>
+            </div>
+        </section>
+
+        <h2 class="section-title animate-on-scroll" data-lang-key="home_featured">Recomandările Noastre</h2>
+        <div class="menu-grid" id="featured-grid"></div>
+
+        <section class="about-hero animate-on-scroll" style="margin-top: 60px;">
+            <h2 class="section-title" data-lang-key="home_why">De Ce Roll Story?</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <i class="ph ph-leaf feature-icon"></i>
+                    <h3 data-lang-key="feat_fresh">Ingrediente Proaspete</h3>
+                    <p data-lang-key="feat_fresh_desc">Toate produsele sunt pregătite zilnic din ingrediente naturale, fără conservanți.</p>
+                </div>
+                <div class="feature-card">
+                    <i class="ph ph-fire feature-icon"></i>
+                    <h3 data-lang-key="feat_taste">Gust Premium</h3>
+                    <p data-lang-key="feat_taste_desc">Rețete unice, autentice, care îmbină tradiționalul cu modernul.</p>
+                </div>
+                <div class="feature-card">
+                    <i class="ph ph-lightning feature-icon"></i>
+                    <h3 data-lang-key="feat_fast">Rapid & Comod</h3>
+                    <p data-lang-key="feat_fast_desc">Comandă prin WhatsApp sau sună. Pregătim totul rapid și cu grijă.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="reviews-section animate-on-scroll">
+            <h2 class="section-title" data-lang-key="home_reviews">Părerea Clienților</h2>
+            <div class="marquee-container">
+                <div class="marquee-track">
+                    <!-- REVIEWS SET 1 -->
+                    <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"Cea mai bună șaorma din Soroca! Ingrediente mereu proaspete și sosuri unice."</p><div class="review-author"><i class="ph-fill ph-user-circle"></i> Andrei V.</div></div>
+                    <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"Un local super, revin cu drag de fiecare dată. Recomand clătitele dulci!"</p><div class="review-author"><i class="ph-fill ph-user-circle"></i> Maria C.</div></div>
+                    <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"Rapid, delicios și foarte curat. Deservirea este pur și simplu minunată."</p><div class="review-author"><i class="ph-fill ph-user-circle"></i> Ion B.</div></div>
+                    <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"Atmosferă plăcută și mâncare de nota 10. Felicitări întregii echipe!"</p><div class="review-author"><i class="ph-fill ph-user-circle"></i> Elena M.</div></div>
+                    <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"Porții generoase și prețuri foarte bune. Preferata mea este șaorma cu pui."</p><div class="review-author"><i class="ph-fill ph-user-circle"></i> Vasile R.</div></div>
+                    <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"În sfârșit un street food de calitate premium la noi în oraș. Bravo!"</p><div class="review-author"><i class="ph-fill ph-user-circle"></i> Cristina D.</div></div>
+                    <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"Gust autentic, exact cum trebuie să fie. Sosul cu usturoi e fenomenal."</p><div class="review-author"><i class="ph-fill ph-user-circle"></i> Alexandru T.</div></div>
+                    <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"Cea mai bună experiență! Livrarea este rapidă și totul ajunge cald."</p><div class="review-author"><i class="ph-fill ph-user-circle"></i> Tatiana S.</div></div>
+                    
+                    <!-- REVIEWS SET 2 (DUPLICATE FOR MARQUEE) -->
+                    <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"Cea mai bună șaorma din Soroca! Ingrediente mereu proaspete și sosuri unice."</p><div class="review-author"><i class="ph-fill ph-user-circle"></i> Andrei V.</div></div>
+                    <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"Un local super, revin cu drag de fiecare dată. Recomand clătitele dulci!"</p><div class="review-author"><i class="ph-fill ph-user-circle"></i> Maria C.</div></div>
+                    <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"Rapid, delicios și foarte curat. Deservirea este pur și simplu minunată."</p><div class="review-author"><i class="ph-fill ph-user-circle"></i> Ion B.</div></div>
+                    <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"Atmosferă plăcută și mâncare de nota 10. Felicitări întregii echipe!"</p><div class="review-author"><i class="ph-fill ph-user-circle"></i> Elena M.</div></div>
+                    <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"Porții generoase și prețuri foarte bune. Preferata mea este șaorma cu pui."</p><div class="review-author"><i class="ph-fill ph-user-circle"></i> Vasile R.</div></div>
+                    <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"În sfârșit un street food de calitate premium la noi în oraș. Bravo!"</p><div class="review-author"><i class="ph-fill ph-user-circle"></i> Cristina D.</div></div>
+                    <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"Gust autentic, exact cum trebuie să fie. Sosul cu usturoi e fenomenal."</p><div class="review-author"><i class="ph-fill ph-user-circle"></i> Alexandru T.</div></div>
+                    <div class="review-card"><div class="review-stars">★★★★★</div><p class="review-text">"Cea mai bună experiență! Livrarea este rapidă și totul ajunge cald."</p><div class="review-author"><i class="ph-fill ph-user-circle"></i> Tatiana S.</div></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <h3>ROLL STORY</h3>
+                <p data-lang-key="footer_desc">Premium Shawarma & Crepes în Soroca, Moldova. 100% sănătos, 100% delicios.</p>
+                <div class="social-icons" id="footer-social"></div>
+            </div>
+            <div class="footer-links" id="footer-nav-links">
+                <h4 data-lang-key="footer_nav">NAVIGARE</h4>
+                <a href="/menu.html" data-lang-key="nav_menu">Meniu</a>
+                <a href="/about.html" data-lang-key="nav_about">Despre Noi</a>
+                <a href="/gallery.html" data-lang-key="nav_gallery">Galerie</a>
+                <a href="/contact.html" data-lang-key="nav_contact">Contact</a>
+            </div>
+            <div class="footer-contact">
+                <h4>CONTACT</h4>
+                <p>Str. Independenței 79/1</p>
+                <p>MD-3006, Soroca</p>
+                <p>+373 610 55 561</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 Roll Story. All rights reserved.  <a href="/admin/login.html" style="color:var(--color-text-muted);margin-left:10px;text-decoration:none;"><i class="ph ph-lock"></i></a></p>
+        </div>
+    </footer>
+
+    <div class="sticky-order-bar">
+        <a href="/menu.html" class="order-btn">
+            <i class="ph ph-fork-knife"></i>
+            <span data-lang-key="bar_menu">Meniu</span>
+        </a>
+        <a href="tel:+37361055561" class="order-btn" id="call-btn">
+            <i class="ph ph-phone"></i>
+            <span data-lang-key="bar_call">Sună</span>
+        </a>
+        <a href="#" class="order-btn primary" id="wa-btn" target="_blank">
+            <i class="ph ph-whatsapp-logo"></i>
+            <span data-lang-key="bar_whatsapp">WhatsApp</span>
+        </a>
+        <a href="#" class="order-btn" id="glovo-btn" target="_blank" style="display:none;">
+            <i class="ph ph-moped"></i>
+            <span>Glovo</span>
+        </a>
+    </div>
+
+    <div class="social-sidebar" id="social-sidebar"></div>
+
+    <script src="/js/lang.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>

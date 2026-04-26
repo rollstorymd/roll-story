@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | Roll Story</title>
+    <link rel="stylesheet" href="/css/admin.css">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+    <div class="admin-header">
+        <h2><i class="ph ph-gear-six"></i> Roll Story Admin</h2>
+        <div>
+            <a href="/" class="btn-sm btn-secondary" style="text-decoration:none;display:inline-block;margin-right:8px">← Site</a>
+            <button onclick="logout()" class="btn-sm btn-danger">Logout</button>
+        </div>
+    </div>
+
+    <div class="admin-container">
+
+        <div class="card">
+            <h2><i class="ph ph-spinning-loader"></i> Loader Global</h2>
+            <form id="loader-form">
+                <div class="toggle-row">
+                    <label class="toggle-switch"><input type="checkbox" id="loader-enabled" checked><span class="toggle-slider"></span></label>
+                    <span class="toggle-label">Loader activ</span>
+                </div>
+                <div class="form-grid">
+                    <div><label>Text loader</label><input type="text" id="loader-text-input" value="Roll Story"></div>
+                    <div><label>Culoare accent</label>
+                        <select id="loader-color-input"><option value="yellow">Galben</option><option value="green">Verde</option></select>
+                    </div>
+                </div>
+                <button type="submit">Salvează Loader</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2><i class="ph ph-megaphone"></i> Promo Pop-up</h2>
+            <form id="promo-form">
+                <div class="toggle-row">
+                    <label class="toggle-switch"><input type="checkbox" id="promo-active"><span class="toggle-slider"></span></label>
+                    <span class="toggle-label">Promo activ</span>
+                </div>
+                <div class="form-grid">
+                    <div><label>Titlu (RO)</label><input type="text" id="promo-title-ro"></div>
+                    <div><label>Titlu (RU)</label><input type="text" id="promo-title-ru"></div>
+                    <div><label>Titlu (EN)</label><input type="text" id="promo-title-en"></div>
+                    <div><label>Delay (secunde)</label><input type="number" id="promo-delay" value="3" min="0"></div>
+                    <div style="grid-column:span 2"><label>Text (RO)</label><textarea id="promo-text-ro" rows="2"></textarea></div>
+                    <div style="grid-column:span 2"><label>Text (RU)</label><textarea id="promo-text-ru" rows="2"></textarea></div>
+                    <div style="grid-column:span 2"><label>Text (EN)</label><textarea id="promo-text-en" rows="2"></textarea></div>
+                    <div><label>Imagine</label><input type="file" id="promo-image" accept="image/*"></div>
+                    <div><label>URL buton</label><input type="text" id="promo-btn-url" placeholder="/menu.html"></div>
+                    <div><label>Text buton (RO)</label><input type="text" id="promo-btn-ro" value="Comandă"></div>
+                    <div><label>Text buton (RU)</label><input type="text" id="promo-btn-ru" value="Заказать"></div>
+                    <div><label>Text buton (EN)</label><input type="text" id="promo-btn-en" value="Order Now"></div>
+                    <div>
+                        <div class="toggle-row" style="margin-top:20px">
+                            <label class="toggle-switch"><input type="checkbox" id="promo-once" checked><span class="toggle-slider"></span></label>
+                            <span class="toggle-label">O dată pe sesiune</span>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" style="margin-top:12px">Salvează Promo</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2><i class="ph ph-image"></i> Fundal Hero</h2>
+            <form id="hero-bg-form" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <input type="file" id="hero-bg-file" accept="image/*,video/*" required>
+                <button type="submit">Încarcă Fundal</button>
+                <button type="button" class="btn-danger" id="delete-hero-bg-btn" style="display:none" onclick="deleteHeroBg()">Șterge Fundal</button>
+            </form>
+            <div id="hero-bg-preview" style="margin-top:15px"></div>
+        </div>
+
+        <div class="card">
+            <h2><i class="ph ph-sliders"></i> Setări Generale</h2>
+            <form id="settings-form" class="form-grid">
+                <div><label>Telefon</label><input type="text" id="set-phone" name="phone"></div>
+                <div><label>Mesaj WhatsApp</label><input type="text" id="set-wa-msg" name="whatsapp_msg"></div>
+                <div><label>Link Glovo</label><input type="text" id="set-glovo" name="glovo_url"></div>
+                <div><label>Link Bolt Food</label><input type="text" id="set-bolt" name="bolt_url"></div>
+                <div><label>Program (RO)</label><input type="text" id="set-hours-ro" name="working_hours_ro"></div>
+                <div><label>Program (RU)</label><input type="text" id="set-hours-ru" name="working_hours_ru"></div>
+                <div><label>Program (EN)</label><input type="text" id="set-hours-en" name="working_hours_en"></div>
+                <div></div>
+                <div style="grid-column:span 2"><button type="submit">Salvează Setări</button></div>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2><i class="ph ph-share-network"></i> Social Media</h2>
+            <div id="social-admin-list"></div>
+            <button onclick="saveSocial()" style="margin-top:12px">Salvează Social</button>
+        </div>
+
+        <div class="card">
+            <h2><i class="ph ph-fork-knife"></i> Articole Meniu</h2>
+            <button onclick="openMenuModal()" style="margin-bottom:15px"><i class="ph ph-plus"></i> Adaugă Produs</button>
+            <div style="overflow-x:auto">
+                <table><thead><tr><th>ID</th><th>Img</th><th>Nume</th><th>Cat</th><th>Preț</th><th>Activ</th><th>Acțiuni</th></tr></thead><tbody id="menu-table-body"></tbody></table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2><i class="ph ph-text-align-left"></i> Secțiuni "Despre Noi"</h2>
+            <button onclick="openAboutModal()" style="margin-bottom:15px"><i class="ph ph-plus"></i> Adaugă Secțiune</button>
+            <div id="about-sections-admin"></div>
+        </div>
+
+        <div class="card">
+            <h2><i class="ph ph-images"></i> Galerie</h2>
+            <form id="gallery-form" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <input type="file" id="gal-file" accept="image/*" required>
+                <select id="gal-type"><option value="interior">Interior</option><option value="food">Mâncare</option></select>
+                <button type="submit">Încarcă</button>
+            </form>
+            <div id="gallery-manage-grid" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:20px"></div>
+        </div>
+
+        <div class="card">
+            <h2><i class="ph ph-file-text"></i> Pagini Statice</h2>
+            <button onclick="openPageModal()" style="margin-bottom:15px"><i class="ph ph-plus"></i> Adaugă Pagină</button>
+            <div id="pages-admin-list" class="pages-list"></div>
+        </div>
+
+    </div>
+
+    <div id="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999" onclick="closeMenuModal()"></div>
+    <div id="menu-editor" class="card" style="display:none;position:fixed;top:3%;left:50%;transform:translateX(-50%);width:92%;max-width:700px;max-height:94vh;overflow-y:auto;z-index:1000">
+        <h2 id="modal-title">Adaugă Produs</h2>
+        <form id="menu-item-form">
+            <input type="hidden" id="mi-id">
+            <div class="form-grid">
+                <div><label>Categorie</label><select id="mi-cat" required><option value="shawarma">Șaorma</option><option value="drinks">Băuturi</option><option value="crepes">Crepe</option><option value="addons">Adaos</option></select></div>
+                <div><label>Preț (MDL)</label><input type="number" id="mi-price" required></div>
+                <div><label>Nume (RO)</label><input type="text" id="mi-name-ro" required></div>
+                <div><label>Nume (RU)</label><input type="text" id="mi-name-ru" required></div>
+                <div><label>Nume (EN)</label><input type="text" id="mi-name-en" required></div>
+                <div><label>Descriere (RO)</label><textarea id="mi-desc-ro" rows="2"></textarea></div>
+                <div><label>Descriere (RU)</label><textarea id="mi-desc-ru" rows="2"></textarea></div>
+                <div><label>Descriere (EN)</label><textarea id="mi-desc-en" rows="2"></textarea></div>
+                <div><label>Ingrediente (RO)</label><textarea id="mi-ing-ro" rows="2"></textarea></div>
+                <div><label>Ingrediente (RU)</label><textarea id="mi-ing-ru" rows="2"></textarea></div>
+                <div><label>Ingrediente (EN)</label><textarea id="mi-ing-en" rows="2"></textarea></div>
+                <div><label>Imagine</label><input type="file" id="mi-image" accept="image/*"></div>
+                <div><label>Status</label><select id="mi-active"><option value="1">Activ</option><option value="0">Inactiv</option></select></div>
+                <div><label>Ordine</label><input type="number" id="mi-sort" value="0"></div>
+            </div>
+            <div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end">
+                <button type="button" onclick="closeMenuModal()" class="btn-secondary">Anulează</button>
+                <button type="submit">Salvează</button>
+            </div>
+        </form>
+    </div>
+
+    <div id="about-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999" onclick="closeAboutModal()"></div>
+    <div id="about-editor" class="card" style="display:none;position:fixed;top:5%;left:50%;transform:translateX(-50%);width:92%;max-width:650px;max-height:90vh;overflow-y:auto;z-index:1000">
+        <h2 id="about-modal-title">Adaugă Secțiune</h2>
+        <form id="about-form">
+            <input type="hidden" id="ab-id">
+            <div class="form-grid">
+                <div><label>Titlu (RO)</label><input type="text" id="ab-title-ro" required></div>
+                <div><label>Titlu (RU)</label><input type="text" id="ab-title-ru" required></div>
+                <div><label>Titlu (EN)</label><input type="text" id="ab-title-en" required></div>
+                <div><label>Ordine</label><input type="number" id="ab-order" value="0"></div>
+                <div style="grid-column:span 2"><label>Text (RO)</label><textarea id="ab-text-ro" rows="3"></textarea></div>
+                <div style="grid-column:span 2"><label>Text (RU)</label><textarea id="ab-text-ru" rows="3"></textarea></div>
+                <div style="grid-column:span 2"><label>Text (EN)</label><textarea id="ab-text-en" rows="3"></textarea></div>
+                <div><label>Imagine</label><input type="file" id="ab-image" accept="image/*"></div>
+                <div><label>Activ</label><select id="ab-active"><option value="1">Da</option><option value="0">Nu</option></select></div>
+            </div>
+            <div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end">
+                <button type="button" onclick="closeAboutModal()" class="btn-secondary">Anulează</button>
+                <button type="submit">Salvează</button>
+            </div>
+        </form>
+    </div>
+
+    <div id="page-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999" onclick="closePageModal()"></div>
+    <div id="page-editor" class="card" style="display:none;position:fixed;top:3%;left:50%;transform:translateX(-50%);width:92%;max-width:700px;max-height:94vh;overflow-y:auto;z-index:1000">
+        <h2 id="page-modal-title">Adaugă Pagină</h2>
+        <form id="page-form">
+            <input type="hidden" id="pg-id">
+            <div class="form-grid">
+                <div><label>Slug (URL)</label><input type="text" id="pg-slug" required placeholder="oferte-speciale"></div>
+                <div><label>Ordine nav</label><input type="number" id="pg-order" value="0"></div>
+                <div><label>Titlu (RO)</label><input type="text" id="pg-title-ro" required></div>
+                <div><label>Titlu (RU)</label><input type="text" id="pg-title-ru" required></div>
+                <div><label>Titlu (EN)</label><input type="text" id="pg-title-en" required></div>
+                <div><label>Activ</label><select id="pg-active"><option value="1">Da</option><option value="0">Nu</option></select></div>
+                <div style="grid-column:span 2"><label>Conținut (RO)</label><textarea id="pg-content-ro" rows="4"></textarea></div>
+                <div style="grid-column:span 2"><label>Conținut (RU)</label><textarea id="pg-content-ru" rows="4"></textarea></div>
+                <div style="grid-column:span 2"><label>Conținut (EN)</label><textarea id="pg-content-en" rows="4"></textarea></div>
+                <div><label>Imagine</label><input type="file" id="pg-image" accept="image/*"></div>
+            </div>
+            <div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end">
+                <button type="button" onclick="closePageModal()" class="btn-secondary">Anulează</button>
+                <button type="submit">Salvează</button>
+            </div>
+        </form>
+    </div>
+
+    <script src="/js/admin.js"></script>
+</body>
+</html>

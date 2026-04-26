@@ -1,0 +1,46 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Oswald:wght@400;500;600;700&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a1a10;color:#e0e0e0;font-family:'Inter',sans-serif;min-height:100vh}
+.admin-header{background:#081a0e;border-bottom:1px solid #1a3d22;padding:14px 28px;display:flex;justify-content:space-between;align-items:center}
+.admin-header h2{font-family:'Oswald',sans-serif;color:#FFE32A;font-size:22px;letter-spacing:2px}
+.admin-container{max-width:1200px;margin:24px auto;padding:0 20px}
+.card{background:#0d2914;border:1px solid #1a3d22;border-radius:12px;padding:24px;margin-bottom:24px}
+.card h2{margin-bottom:18px;font-family:'Oswald',sans-serif;color:#FFE32A;font-size:20px;letter-spacing:1px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid #1a3d22;font-size:14px}
+th{background:rgba(255,227,42,0.05);color:#FFE32A;font-family:'Oswald',sans-serif;letter-spacing:1px;font-size:13px}
+td{color:#c0c0c0}
+input,select,textarea{width:100%;padding:10px 12px;margin-bottom:10px;border:1px solid #1a3d22;border-radius:8px;background:#081a0e;color:#e0e0e0;font-family:'Inter',sans-serif;font-size:14px;transition:border-color 0.3s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:#FFE32A}
+label{display:block;font-size:13px;color:#8fa896;margin-bottom:4px;font-weight:500}
+button{background:linear-gradient(135deg,#FFE32A,#d4aa00);color:#000;padding:10px 20px;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600;font-size:14px;transition:all 0.3s}
+button:hover{transform:translateY(-1px);box-shadow:0 4px 15px rgba(255,227,42,0.3)}
+.btn-danger{background:#ff4d4d!important;color:#fff!important}
+.btn-danger:hover{background:#cc3333!important;box-shadow:0 4px 15px rgba(255,77,77,0.3)}
+.btn-sm{padding:6px 14px;font-size:12px;border-radius:6px}
+.btn-secondary{background:#1a3d22;color:#e0e0e0}
+.btn-secondary:hover{background:#2d6a3f}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:700px){.form-grid{grid-template-columns:1fr}}
+.login-wrapper{display:flex;justify-content:center;align-items:center;height:100vh;background:#050e08}
+.login-card{width:380px;max-width:90vw;text-align:center}
+.login-logo{font-family:'Oswald',sans-serif;font-size:32px;font-weight:700;color:#FFE32A;letter-spacing:4px;margin-bottom:4px}
+.login-sub{color:#8fa896;margin-bottom:24px;font-size:14px}
+.error-msg{color:#ff4d4d;text-align:center;margin-top:12px;font-size:14px}
+.toggle-row{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.toggle-label{font-size:14px;color:#c0c0c0}
+.toggle-switch{position:relative;width:48px;height:26px;flex-shrink:0}
+.toggle-switch input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:#1a3d22;border-radius:26px;cursor:pointer;transition:0.3s}
+.toggle-slider::before{content:'';position:absolute;height:20px;width:20px;left:3px;bottom:3px;background:#555;border-radius:50%;transition:0.3s}
+.toggle-switch input:checked+.toggle-slider{background:#FFE32A}
+.toggle-switch input:checked+.toggle-slider::before{transform:translateX(22px);background:#000}
+.admin-section-title{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.admin-section-title i{font-size:24px;color:#FFE32A}
+.pages-list .page-item{display:flex;align-items:center;gap:14px;padding:12px;background:rgba(255,255,255,0.02);border-radius:8px;margin-bottom:8px;border:1px solid #1a3d22}
+.pages-list .page-item .page-info{flex:1}
+.pages-list .page-item .page-info strong{color:#e0e0e0;font-size:15px}
+.pages-list .page-item .page-info small{color:#8fa896;display:block;margin-top:2px}
+.social-admin-row{display:flex;align-items:center;gap:12px;padding:10px;background:rgba(255,255,255,0.02);border-radius:8px;margin-bottom:8px;border:1px solid #1a3d22}
+.social-admin-row .social-type{font-family:'Oswald',sans-serif;color:#FFE32A;text-transform:capitalize;min-width:90px;font-size:14px;letter-spacing:1px}
+.social-admin-row input[type="text"]{margin-bottom:0;flex:1}

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Ingredientele Roll Story — 100% naturale, proaspete, fără conservanți. Garanție 400%.">
+    <title>Ingrediente | Roll Story — Soroca</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+    <div class="global-loader" id="global-loader">
+        <div class="loader-spinner" id="loader-spinner"></div>
+        <div class="loader-text" id="loader-text">Roll Story</div>
+    </div>
+
+    <header id="main-header">
+        <div class="nav-container">
+            <div class="logo"><a href="/"><span>ROLL STORY</span></a></div>
+            <nav class="nav-links" id="nav-links">
+                <a href="/menu.html" data-lang-key="nav_menu">Meniu</a>
+                <a href="/about.html" data-lang-key="nav_about">Despre Noi</a>
+                <a href="/ingredients.html" class="active" data-lang-key="nav_ingredients">Ingrediente</a>
+                <a href="/gallery.html" data-lang-key="nav_gallery">Galerie</a>
+                <a href="/contact.html" data-lang-key="nav_contact">Contact</a>
+                <div class="lang-switch">
+                    <button class="lang-btn active" data-lang="ro">RO</button>
+                    <button class="lang-btn" data-lang="ru">RU</button>
+                    <button class="lang-btn" data-lang="en">EN</button>
+                </div>
+            </nav>
+            <div class="lang-switch" id="desktop-lang">
+                <button class="lang-btn active" data-lang="ro">RO</button>
+                <button class="lang-btn" data-lang="ru">RU</button>
+                <button class="lang-btn" data-lang="en">EN</button>
+            </div>
+            <div class="hamburger" id="hamburger" onclick="toggleMobileNav()">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+    </header>
+
+    <main class="container page-fade-in">
+        <h1 class="section-title" data-lang-key="nav_ingredients">Ingrediente</h1>
+        <div class="guarantee-banner animate-on-scroll">
+            <h2 data-lang-key="ing_guarantee_title">GARANȚIE 400%</h2>
+            <p data-lang-key="ing_guarantee_sub">La toate produsele companiei Roll Story</p>
+        </div>
+        <div class="ingredients-grid">
+            <div class="ingredient-card animate-on-scroll">
+                <i class="ph ph-bird"></i>
+                <h3 data-lang-key="ing_chicken">Pui Proaspăt</h3>
+                <p data-lang-key="ing_chicken_desc">Carne de pui 100% naturală, selectată zilnic de la ferme de încredere.</p>
+            </div>
+            <div class="ingredient-card animate-on-scroll">
+                <i class="ph ph-carrot"></i>
+                <h3 data-lang-key="ing_veggies">Legume Proaspete</h3>
+                <p data-lang-key="ing_veggies_desc">Roșii, castraveți, salată verde — toate proaspete, livrate zilnic.</p>
+            </div>
+            <div class="ingredient-card animate-on-scroll">
+                <i class="ph ph-bread"></i>
+                <h3 data-lang-key="ing_bread">Lipie Artizanală</h3>
+                <p data-lang-key="ing_bread_desc">Lipie coaptă proaspăt, moale și perfect proporțională.</p>
+            </div>
+            <div class="ingredient-card animate-on-scroll">
+                <i class="ph ph-drop"></i>
+                <h3 data-lang-key="ing_sauce">Sosuri Naturale</h3>
+                <p data-lang-key="ing_sauce_desc">Sosuri făcute în casă, fără conservanți sau aditivi artificiali.</p>
+            </div>
+            <div class="ingredient-card animate-on-scroll">
+                <i class="ph ph-coffee"></i>
+                <h3 data-lang-key="ing_coffee">Cafea Premium</h3>
+                <p data-lang-key="ing_coffee_desc">Arabica 50% / Robusta — amestec perfect echilibrat pentru energie.</p>
+            </div>
+            <div class="ingredient-card animate-on-scroll">
+                <i class="ph ph-orange-slice"></i>
+                <h3 data-lang-key="ing_fruits">Fructe Naturale</h3>
+                <p data-lang-key="ing_fruits_desc">Dulcețuri și toppinguri 100% naturale, din fructe proaspete.</p>
+            </div>
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <div class="footer-content">
+            <div class="footer-brand"><h3>ROLL STORY</h3><p data-lang-key="footer_desc">Premium Shawarma &amp; Crepes în Soroca.</p><div class="social-icons" id="footer-social"></div></div>
+            <div class="footer-links" id="footer-nav-links"><h4 data-lang-key="footer_nav">NAVIGARE</h4><a href="/menu.html" data-lang-key="nav_menu">Meniu</a><a href="/about.html" data-lang-key="nav_about">Despre Noi</a><a href="/contact.html" data-lang-key="nav_contact">Contact</a></div>
+            <div class="footer-contact"><h4>CONTACT</h4><p>Str. Independenței 79/1, Soroca</p><p>+373 610 55 561</p></div>
+        </div>
+        <div class="footer-bottom"><p>&copy; 2026 Roll Story. <a href="/admin/login.html" style="color:var(--color-text-muted);margin-left:10px;text-decoration:none;"><i class="ph ph-lock"></i></a></p></div>
+    </footer>
+
+    <div class="sticky-order-bar">
+        <a href="/menu.html" class="order-btn"><i class="ph ph-fork-knife"></i><span data-lang-key="bar_menu">Meniu</span></a>
+        <a href="tel:+37361055561" class="order-btn" id="call-btn"><i class="ph ph-phone"></i><span data-lang-key="bar_call">Sună</span></a>
+        <a href="#" class="order-btn primary" id="wa-btn" target="_blank"><i class="ph ph-whatsapp-logo"></i><span data-lang-key="bar_whatsapp">WhatsApp</span></a>
+    </div>
+
+    <div class="social-sidebar" id="social-sidebar"></div>
+
+    <script src="/js/lang.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>
