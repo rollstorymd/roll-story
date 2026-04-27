@@ -27,22 +27,30 @@ async function uploadToSupabase(file) {
     const uniqueSuffix = Date.now() + '-' + Math.random().toString(36).slice(2);
     const filename = `img-${uniqueSuffix}${ext}`;
 
-    const { error } = await supabase.storage.from('images').upload(filename, file.buffer, {
-        contentType: file.mimetype,
-        cacheControl: '3600',
-        upsert: false
-    });
+    console.log(`[uploadToSupabase] Attempting upload: ${filename} (${file.size} bytes, type: ${file.mimetype})`);
 
-    if (error) {
-        console.error('[uploadToSupabase]', error.message);
-        throw error;
+    try {
+        const { error } = await supabase.storage.from('images').upload(filename, file.buffer, {
+            contentType: file.mimetype,
+            cacheControl: '3600',
+            upsert: false
+        });
+
+        if (error) {
+            console.error('[uploadToSupabase] Upload failed:', error.message, error);
+            throw new Error(`Upload failed: ${error.message}`);
+        }
+
+        const { data: urlData } = supabase.storage.from('images').getPublicUrl(filename);
+        console.log(`[uploadToSupabase] Upload successful: ${urlData.publicUrl}`);
+        return urlData.publicUrl;
+    } catch (err) {
+        console.error('[uploadToSupabase] Exception during upload:', err.message);
+        throw err;
     }
-
-    const { data: urlData } = supabase.storage.from('images').getPublicUrl(filename);
-    return urlData.publicUrl;
 }
 
-// ─── Auth ──────────────────────────────────────────────────────────────────
+// ─── Auth ───────────────────────────────────────────────────────────────
 
 router.post('/login', loginLimiter, async (req, res) => {
     const { username, password } = req.body;
@@ -69,7 +77,7 @@ router.post('/login', loginLimiter, async (req, res) => {
         res.json({ token, username: admin.username });
     } catch (e) {
         console.error('[admin/login]', e.message);
-        res.status(500).json({ error: 'Server error' });
+        res.status(500).json({ error: 'Server error', details: e.message });
     }
 });
 
@@ -101,11 +109,11 @@ router.post('/change-password', async (req, res) => {
         res.json({ message: 'Password updated' });
     } catch (e) {
         console.error('[admin/change-password]', e.message);
-        res.status(500).json({ error: 'Failed to change password' });
+        res.status(500).json({ error: 'Failed to change password', details: e.message });
     }
 });
 
-// ─── Menu ──────────────────────────────────────────────────────────────────
+// ─── Menu ───────────────────────────────────────────────────────────────
 
 router.get('/menu', async (req, res) => {
     try {
@@ -120,13 +128,15 @@ router.get('/menu', async (req, res) => {
         res.json(data);
     } catch (e) {
         console.error('[admin/menu GET]', e.message);
-        res.status(500).json({ error: 'Failed to load menu' });
+        res.status(500).json({ error: 'Failed to load menu', details: e.message });
     }
 });
 
 router.post('/menu', upload.single('image'), async (req, res) => {
     try {
         const b = req.body;
+        console.log('[admin/menu POST] Request body keys:', Object.keys(b));
+        
         const imageUrl = req.file ? await uploadToSupabase(req.file) : null;
 
         const { error } = await supabase.from('menu_items').insert([{
@@ -143,8 +153,8 @@ router.post('/menu', upload.single('image'), async (req, res) => {
         if (error) throw error;
         res.json({ message: 'Created' });
     } catch (e) {
-        console.error('[admin/menu POST]', e.message);
-        res.status(500).json({ error: 'Failed to create item' });
+        console.error('[admin/menu POST]', e.message, e);
+        res.status(500).json({ error: 'Failed to create item', details: e.message });
     }
 });
 
@@ -169,8 +179,8 @@ router.put('/menu/:id', upload.single('image'), async (req, res) => {
         if (error) throw error;
         res.json({ message: 'Updated' });
     } catch (e) {
-        console.error('[admin/menu PUT]', e.message);
-        res.status(500).json({ error: 'Failed to update item' });
+        console.error('[admin/menu PUT]', e.message, e);
+        res.status(500).json({ error: 'Failed to update item', details: e.message });
     }
 });
 
@@ -181,11 +191,11 @@ router.delete('/menu/:id', async (req, res) => {
         res.json({ message: 'Deleted' });
     } catch (e) {
         console.error('[admin/menu DELETE]', e.message);
-        res.status(500).json({ error: 'Failed to delete item' });
+        res.status(500).json({ error: 'Failed to delete item', details: e.message });
     }
 });
 
-// ─── Settings ──────────────────────────────────────────────────────────────
+// ─── Settings ───────────────────────────────────────────────────────────
 
 router.post('/settings', async (req, res) => {
     try {
@@ -196,11 +206,11 @@ router.post('/settings', async (req, res) => {
         res.json({ message: 'Saved' });
     } catch (e) {
         console.error('[admin/settings POST]', e.message);
-        res.status(500).json({ error: 'Failed to save settings' });
+        res.status(500).json({ error: 'Failed to save settings', details: e.message });
     }
 });
 
-// ─── Hero Background ───────────────────────────────────────────────────────
+// ─── Hero Background ────────────────────────────────────────────────────
 
 router.post('/hero-bg', upload.single('image'), async (req, res) => {
     try {
@@ -215,8 +225,8 @@ router.post('/hero-bg', upload.single('image'), async (req, res) => {
 
         res.json({ message: 'Updated', url: imageUrl, type });
     } catch (e) {
-        console.error('[admin/hero-bg POST]', e.message);
-        res.status(500).json({ error: 'Failed to update hero background' });
+        console.error('[admin/hero-bg POST]', e.message, e);
+        res.status(500).json({ error: 'Failed to update hero background', details: e.message });
     }
 });
 
@@ -227,11 +237,11 @@ router.delete('/hero-bg', async (req, res) => {
         res.json({ message: 'Deleted' });
     } catch (e) {
         console.error('[admin/hero-bg DELETE]', e.message);
-        res.status(500).json({ error: 'Failed to remove hero background' });
+        res.status(500).json({ error: 'Failed to remove hero background', details: e.message });
     }
 });
 
-// ─── Gallery ───────────────────────────────────────────────────────────────
+// ─── Gallery ────────────────────────────────────────────────────────────
 
 router.post('/gallery', upload.single('image'), async (req, res) => {
     try {
@@ -247,8 +257,8 @@ router.post('/gallery', upload.single('image'), async (req, res) => {
         if (error) throw error;
         res.json({ message: 'Added' });
     } catch (e) {
-        console.error('[admin/gallery POST]', e.message);
-        res.status(500).json({ error: 'Failed to add gallery item' });
+        console.error('[admin/gallery POST]', e.message, e);
+        res.status(500).json({ error: 'Failed to add gallery item', details: e.message });
     }
 });
 
@@ -259,11 +269,11 @@ router.delete('/gallery/:id', async (req, res) => {
         res.json({ message: 'Deleted' });
     } catch (e) {
         console.error('[admin/gallery DELETE]', e.message);
-        res.status(500).json({ error: 'Failed to delete gallery item' });
+        res.status(500).json({ error: 'Failed to delete gallery item', details: e.message });
     }
 });
 
-// ─── About Sections ────────────────────────────────────────────────────────
+// ─── About Sections ─────────────────────────────────────────────────────
 
 router.get('/about', async (req, res) => {
     try {
@@ -277,7 +287,7 @@ router.get('/about', async (req, res) => {
         res.json(data);
     } catch (e) {
         console.error('[admin/about GET]', e.message);
-        res.status(500).json({ error: 'Failed to load sections' });
+        res.status(500).json({ error: 'Failed to load sections', details: e.message });
     }
 });
 
@@ -297,8 +307,8 @@ router.post('/about', upload.single('image'), async (req, res) => {
         if (error) throw error;
         res.json({ message: 'Created' });
     } catch (e) {
-        console.error('[admin/about POST]', e.message);
-        res.status(500).json({ error: 'Failed to create section' });
+        console.error('[admin/about POST]', e.message, e);
+        res.status(500).json({ error: 'Failed to create section', details: e.message });
     }
 });
 
@@ -320,8 +330,8 @@ router.put('/about/:id', upload.single('image'), async (req, res) => {
         if (error) throw error;
         res.json({ message: 'Updated' });
     } catch (e) {
-        console.error('[admin/about PUT]', e.message);
-        res.status(500).json({ error: 'Failed to update section' });
+        console.error('[admin/about PUT]', e.message, e);
+        res.status(500).json({ error: 'Failed to update section', details: e.message });
     }
 });
 
@@ -332,11 +342,11 @@ router.delete('/about/:id', async (req, res) => {
         res.json({ message: 'Deleted' });
     } catch (e) {
         console.error('[admin/about DELETE]', e.message);
-        res.status(500).json({ error: 'Failed to delete section' });
+        res.status(500).json({ error: 'Failed to delete section', details: e.message });
     }
 });
 
-// ─── Social Links ──────────────────────────────────────────────────────────
+// ─── Social Links ───────────────────────────────────────────────────────
 
 router.get('/social', async (req, res) => {
     try {
@@ -349,7 +359,7 @@ router.get('/social', async (req, res) => {
         res.json(data);
     } catch (e) {
         console.error('[admin/social GET]', e.message);
-        res.status(500).json({ error: 'Failed to load social links' });
+        res.status(500).json({ error: 'Failed to load social links', details: e.message });
     }
 });
 
@@ -365,11 +375,11 @@ router.post('/social', async (req, res) => {
         res.json({ message: 'Saved' });
     } catch (e) {
         console.error('[admin/social POST]', e.message);
-        res.status(500).json({ error: 'Failed to save social links' });
+        res.status(500).json({ error: 'Failed to save social links', details: e.message });
     }
 });
 
-// ─── Promo Popup ───────────────────────────────────────────────────────────
+// ─── Promo Popup ────────────────────────────────────────────────────────
 
 router.get('/promo', async (req, res) => {
     try {
@@ -384,7 +394,7 @@ router.get('/promo', async (req, res) => {
         res.json(data || null);
     } catch (e) {
         console.error('[admin/promo GET]', e.message);
-        res.status(500).json({ error: 'Failed to load promo' });
+        res.status(500).json({ error: 'Failed to load promo', details: e.message });
     }
 });
 
@@ -415,12 +425,12 @@ router.post('/promo', upload.single('image'), async (req, res) => {
         if (error) throw error;
         res.json({ message: 'Saved' });
     } catch (e) {
-        console.error('[admin/promo POST]', e.message);
-        res.status(500).json({ error: 'Failed to save promo' });
+        console.error('[admin/promo POST]', e.message, e);
+        res.status(500).json({ error: 'Failed to save promo', details: e.message });
     }
 });
 
-// ─── Loader ────────────────────────────────────────────────────────────────
+// ─── Loader ─────────────────────────────────────────────────────────────
 
 router.post('/loader', async (req, res) => {
     try {
@@ -433,11 +443,11 @@ router.post('/loader', async (req, res) => {
         res.json({ message: 'Saved' });
     } catch (e) {
         console.error('[admin/loader POST]', e.message);
-        res.status(500).json({ error: 'Failed to save loader settings' });
+        res.status(500).json({ error: 'Failed to save loader settings', details: e.message });
     }
 });
 
-// ─── Static Pages ──────────────────────────────────────────────────────────
+// ─── Static Pages ───────────────────────────────────────────────────────
 
 router.get('/pages', async (req, res) => {
     try {
@@ -451,7 +461,7 @@ router.get('/pages', async (req, res) => {
         res.json(data);
     } catch (e) {
         console.error('[admin/pages GET]', e.message);
-        res.status(500).json({ error: 'Failed to load pages' });
+        res.status(500).json({ error: 'Failed to load pages', details: e.message });
     }
 });
 
@@ -476,8 +486,8 @@ router.post('/pages', upload.single('image'), async (req, res) => {
 
         res.json({ message: 'Created' });
     } catch (e) {
-        console.error('[admin/pages POST]', e.message);
-        res.status(500).json({ error: 'Failed to create page' });
+        console.error('[admin/pages POST]', e.message, e);
+        res.status(500).json({ error: 'Failed to create page', details: e.message });
     }
 });
 
@@ -500,8 +510,8 @@ router.put('/pages/:id', upload.single('image'), async (req, res) => {
         if (error) throw error;
         res.json({ message: 'Updated' });
     } catch (e) {
-        console.error('[admin/pages PUT]', e.message);
-        res.status(500).json({ error: 'Failed to update page' });
+        console.error('[admin/pages PUT]', e.message, e);
+        res.status(500).json({ error: 'Failed to update page', details: e.message });
     }
 });
 
@@ -512,7 +522,7 @@ router.delete('/pages/:id', async (req, res) => {
         res.json({ message: 'Deleted' });
     } catch (e) {
         console.error('[admin/pages DELETE]', e.message);
-        res.status(500).json({ error: 'Failed to delete page' });
+        res.status(500).json({ error: 'Failed to delete page', details: e.message });
     }
 });
 
