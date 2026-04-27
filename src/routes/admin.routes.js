@@ -19,13 +19,12 @@ const loginLimiter = rateLimit({
     message: { error: 'Too many login attempts. Try again later.' }
 });
 
-// Upload a file to Supabase Storage and return its public URL.
 async function uploadToSupabase(file) {
     if (!file) return null;
 
     const ext = path.extname(file.originalname);
-    const uniqueSuffix = Date.now() + '-' + Math.random().toString(36).slice(2);
-    const filename = `img-${uniqueSuffix}${ext}`;
+    const suffix = Date.now() + '-' + Math.random().toString(36).slice(2);
+    const filename = `img-${suffix}${ext}`;
 
     const { error } = await supabase.storage.from('images').upload(filename, file.buffer, {
         contentType: file.mimetype,
@@ -127,6 +126,11 @@ router.get('/menu', async (req, res) => {
 router.post('/menu', upload.single('image'), async (req, res) => {
     try {
         const b = req.body;
+
+        if (!b.category) {
+            return res.status(400).json({ error: 'Category is required' });
+        }
+
         const imageUrl = req.file ? await uploadToSupabase(req.file) : null;
 
         const { error } = await supabase.from('menu_items').insert([{
@@ -144,13 +148,18 @@ router.post('/menu', upload.single('image'), async (req, res) => {
         res.json({ message: 'Created' });
     } catch (e) {
         console.error('[admin/menu POST]', e.message);
-        res.status(500).json({ error: 'Failed to create item' });
+        res.status(500).json({ error: e.message || 'Failed to create item' });
     }
 });
 
 router.put('/menu/:id', upload.single('image'), async (req, res) => {
     try {
         const b = req.body;
+
+        if (!b.category) {
+            return res.status(400).json({ error: 'Category is required' });
+        }
+
         const updateData = {
             category: b.category,
             name_ro: b.name_ro, name_ru: b.name_ru, name_en: b.name_en,
@@ -170,7 +179,7 @@ router.put('/menu/:id', upload.single('image'), async (req, res) => {
         res.json({ message: 'Updated' });
     } catch (e) {
         console.error('[admin/menu PUT]', e.message);
-        res.status(500).json({ error: 'Failed to update item' });
+        res.status(500).json({ error: e.message || 'Failed to update item' });
     }
 });
 

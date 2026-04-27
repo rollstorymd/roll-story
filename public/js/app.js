@@ -1,8 +1,5 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// app.js — Roll Story frontend logic
-// Handles: settings, menu, gallery, about, social links, modals, promo popup,
-//          loader, scroll animations, and navigation behaviour.
-// ─────────────────────────────────────────────────────────────────────────────
+// Roll Story — frontend logic
+// Settings, menu, gallery, about, social links, modals, promo popup, loader, scroll.
 
 let cachedMenuItems = [];
 let cachedSettings = {};
@@ -54,7 +51,7 @@ function renderSocialIcons(links, container) {
     });
 }
 
-// ─── Page Initialisation ─────────────────────────────────────────────────────
+// --- Init ---
 
 window.addEventListener('DOMContentLoaded', async () => {
     initScrollAnimations();
@@ -183,7 +180,7 @@ window.addEventListener('languageChanged', () => {
     }
 });
 
-// ─── Loader ──────────────────────────────────────────────────────────────────
+// --- Loader ---
 
 function applyLoaderSettings(config) {
     const loader = document.getElementById('global-loader');
@@ -211,7 +208,7 @@ function dismissLoader() {
     setTimeout(() => loader.classList.add('hidden'), 600);
 }
 
-// ─── Settings ────────────────────────────────────────────────────────────────
+// --- Settings ---
 
 function applySettingsToUI() {
     const phone = cachedSettings.phone || '+37361055561';
@@ -261,7 +258,7 @@ function applyHeroBackground() {
     }
 }
 
-// ─── Dynamic Navigation Pages ─────────────────────────────────────────────────
+// --- Dynamic nav pages ---
 
 function injectDynamicPages(pages) {
     if (!pages || !pages.length) return;
@@ -283,10 +280,9 @@ function injectDynamicPages(pages) {
     });
 }
 
-// ─── Product Modal ────────────────────────────────────────────────────────────
+// --- Product modal ---
 
-// Builds the product detail modal and gallery lightbox DOM nodes once,
-// then reuses them for every subsequent open.
+// Builds the product modal and gallery lightbox DOM once, reuses them after.
 function createModalContainers() {
     if (!document.getElementById('product-modal-overlay')) {
         const modalHtml = `
@@ -394,7 +390,7 @@ function closeProductModal() {
     document.body.style.overflow = '';
 }
 
-// ─── Lightbox ─────────────────────────────────────────────────────────────────
+// --- Lightbox ---
 
 function openLightbox(src) {
     document.getElementById('lightbox-img').src = src;
@@ -407,7 +403,7 @@ function closeLightbox() {
     document.body.style.overflow = '';
 }
 
-// ─── Menu Rendering ───────────────────────────────────────────────────────────
+// --- Menu ---
 
 function renderMenu(filter = 'all') {
     const isFeatured = !!document.getElementById('featured-grid');
@@ -451,7 +447,7 @@ function renderMenu(filter = 'all') {
     });
 }
 
-// ─── Gallery Rendering ────────────────────────────────────────────────────────
+// --- Gallery ---
 
 function renderGallery(items) {
     const grid = document.getElementById('gallery-grid');
@@ -477,7 +473,7 @@ function renderGallery(items) {
     initScrollAnimations();
 }
 
-// ─── About Sections ───────────────────────────────────────────────────────────
+// --- About ---
 
 function renderAboutSections(sections) {
     const container = document.getElementById('about-sections-container');
@@ -502,7 +498,7 @@ function renderAboutSections(sections) {
     initScrollAnimations();
 }
 
-// ─── Promo Popup ──────────────────────────────────────────────────────────────
+// --- Promo popup ---
 
 function initPromoPopup(promo) {
     if (promo.show_once && sessionStorage.getItem('promo_seen')) return;
@@ -544,7 +540,7 @@ function closePromo() {
     setTimeout(() => overlay.remove(), 500);
 }
 
-// ─── UI Utilities ─────────────────────────────────────────────────────────────
+// --- Utilities ---
 
 function initScrollAnimations() {
     const observer = new IntersectionObserver(entries => {
