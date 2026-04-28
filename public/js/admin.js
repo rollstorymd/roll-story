@@ -1,115 +1,780 @@
-const API='/api/admin';
-let TOKEN=localStorage.getItem('admin_token');
-if(!TOKEN)window.location.href='/admin/login.html';
-const headers=()=>({'Authorization':'Bearer '+TOKEN});
-const jsonHeaders=()=>({'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'});
-function logout(){localStorage.removeItem('admin_token');window.location.href='/admin/login.html';}
+let CURRENT_USER = null;
+const pendingActions = new Set();
+const supabaseClient = window.supabaseClient;
 
-window.addEventListener('DOMContentLoaded',()=>{
-loadSettings();loadMenu();loadGallery();loadAboutSections();loadHeroBgPreview();loadSocial();loadPromo();loadLoader();loadPages();
-document.getElementById('settings-form').addEventListener('submit',saveSettings);
-document.getElementById('menu-item-form').addEventListener('submit',saveMenuItem);
-document.getElementById('gallery-form').addEventListener('submit',uploadGallery);
-document.getElementById('about-form').addEventListener('submit',saveAboutSection);
-document.getElementById('hero-bg-form').addEventListener('submit',uploadHeroBg);
-document.getElementById('promo-form').addEventListener('submit',savePromo);
-document.getElementById('loader-form').addEventListener('submit',saveLoader);
-document.getElementById('page-form').addEventListener('submit',savePage);
+(async function bootstrap() {
+    const session = await sbRequireAdmin();
+    if (!session) return;
+
+    const { data: profile } = await supabaseClient
+        .from('admin_profiles')
+        .select('user_id')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
+    if (!profile) {
+        await supabaseClient.auth.signOut();
+        window.location.href = '/admin/login.html';
+        return;
+    }
+
+    CURRENT_USER = session.user;
+})();
+
+async function logout() {
+    await supabaseClient.auth.signOut();
+    window.location.href = '/admin/login.html';
+}
+
+function isActiveInt(value) {
+    return Number(value) === 1;
+}
+
+async function withPending(actionKey, task) {
+    if (pendingActions.has(actionKey)) return;
+    pendingActions.add(actionKey);
+    try {
+        return await task();
+    } finally {
+        pendingActions.delete(actionKey);
+    }
+}
+
+function setButtonBusy(button, busy, busyText) {
+    if (!button) return;
+    if (busy) {
+        if (!button.dataset.originalText) button.dataset.originalText = button.textContent;
+        button.disabled = true;
+        if (busyText) button.textContent = busyText;
+    } else {
+        button.disabled = false;
+        if (button.dataset.originalText) button.textContent = button.dataset.originalText;
+    }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    ensureTestimonialsAdminUI();
+    loadSettings();
+    loadMenu();
+    loadGallery();
+    loadAboutSections();
+    loadHeroBgPreview();
+    loadSocial();
+    loadPromo();
+    loadLoader();
+    loadPages();
+    loadTestimonials();
+
+    document.getElementById('settings-form').addEventListener('submit', saveSettings);
+    document.getElementById('menu-item-form').addEventListener('submit', saveMenuItem);
+    document.getElementById('gallery-form').addEventListener('submit', uploadGallery);
+    document.getElementById('about-form').addEventListener('submit', saveAboutSection);
+    document.getElementById('hero-bg-form').addEventListener('submit', uploadHeroBg);
+    document.getElementById('promo-form').addEventListener('submit', savePromo);
+    document.getElementById('loader-form').addEventListener('submit', saveLoader);
+    document.getElementById('page-form').addEventListener('submit', savePage);
 });
 
-async function loadSettings(){try{const r=await fetch('/api/settings');const s=await r.json();document.getElementById('set-phone').value=s.phone||'';document.getElementById('set-wa-msg').value=s.whatsapp_msg||'';document.getElementById('set-glovo').value=s.glovo_url||'';document.getElementById('set-bolt').value=s.bolt_url||'';document.getElementById('set-hours-ro').value=s.working_hours_ro||'';document.getElementById('set-hours-ru').value=s.working_hours_ru||'';document.getElementById('set-hours-en').value=s.working_hours_en||'';}catch(e){console.error(e);}}
-<<<<<<< HEAD
-async function saveSettings(e){e.preventDefault();const data={};new FormData(e.target).forEach((v,k)=>data[k]=v);try{const r=await fetch(API+'/settings',{method:'POST',headers:jsonHeaders(),body:JSON.stringify(data)});if(r.ok)alert('Salvat!');else throw new Error('Eroare');}catch(e){console.error(e);alert('Eroare!');}}
+async function fetchSettingsMap() {
+    const { data, error } = await supabaseClient.from('settings').select('key,value');
+    if (error) throw error;
+    return sbRowsToMap(data);
+}
 
-async function loadHeroBgPreview(){try{const r=await fetch('/api/settings');const s=await r.json();const p=document.getElementById('hero-bg-preview');const btn=document.getElementById('delete-hero-bg-btn');if(s.hero_bg_url){p.innerHTML=s.hero_bg_type==='video'?'<video src="'+s.hero_bg_url+'" style="max-width:300px;border-radius:8px" controls muted></video>':'<img src="'+s.hero_bg_url+'" style="max-width:300px;border-radius:8px">';if(btn)btn.style.display='inline-block';}else{p.innerHTML='<p style="color:#8fa896">Niciun fundal setat.</p>';if(btn)btn.style.display='none';}}catch(e){console.error(e);}}
-async function uploadHeroBg(e){e.preventDefault();const f=document.getElementById('hero-bg-file').files[0];if(!f)return;const fd=new FormData();fd.append('image',f);try{const r=await fetch(API+'/hero-bg',{method:'POST',headers:headers(),body:fd});if(r.ok){alert('Actualizat!');loadHeroBgPreview();}else throw new Error('Eroare');}catch(e){console.error(e);alert('Eroare!');}}
-async function deleteHeroBg(){if(!confirm('Ștergi fundalul?'))return;try{const r=await fetch(API+'/hero-bg',{method:'DELETE',headers:headers()});if(r.ok){alert('Șters!');loadHeroBgPreview();}else throw new Error('Eroare');}catch(e){console.error(e);alert('Eroare!');}}
+async function loadSettings() {
+    try {
+        const s = await fetchSettingsMap();
+        document.getElementById('set-phone').value      = s.phone || '';
+        document.getElementById('set-wa-msg').value     = s.whatsapp_msg || '';
+        document.getElementById('set-glovo').value      = s.glovo_url || '';
+        document.getElementById('set-bolt').value       = s.bolt_url || '';
+        document.getElementById('set-hours-ro').value   = s.working_hours_ro || '';
+        document.getElementById('set-hours-ru').value   = s.working_hours_ru || '';
+        document.getElementById('set-hours-en').value   = s.working_hours_en || '';
+    } catch (e) {
+        console.error(e);
+    }
+}
 
-async function loadMenu(){try{const r=await fetch(API+'/menu',{headers:headers()});const items=await r.json();const tb=document.getElementById('menu-table-body');tb.innerHTML='';items.forEach(item=>{const tr=document.createElement('tr');tr.innerHTML='<td>'+item.id+'</td><td>'+(item.image_url?'<img src="'+item.image_url+'" style="width:44px;height:44px;object-fit:cover;border-radius:6px">':'—')+'</td><td><strong>'+item.name_ro+'</strong></td><td><span style="background:rgba(255,227,42,0.1);padding:3px 8px;border-radius:4px;font-size:12px;color:#FFE32A">'+item.category+'</span></td><td><strong>'+item.price+' MDL</strong></td><td>'+(item.active?'✅':'❌')+'</td><td><button class="btn-sm" onclick="editMenuItem('+item.id+')">Edit</button> <button class="btn-sm btn-danger" onclick="deleteMenuItem('+item.id+')">Șterge</button></td>';tb.appendChild(tr);});}catch(e){console.error(e);}}
-function openMenuModal(item=null){document.getElementById('menu-editor').style.display='block';document.getElementById('modal-overlay').style.display='block';if(!item){document.getElementById('modal-title').textContent='Adaugă Produs';document.getElementById('menu-item-form').reset();document.getElementById('mi-id').value='';}}
-function closeMenuModal(){document.getElementById('menu-editor').style.display='none';document.getElementById('modal-overlay').style.display='none';}
-async function editMenuItem(id){try{const r=await fetch('/api/menu/'+id);const item=await r.json();document.getElementById('mi-id').value=item.id;document.getElementById('mi-cat').value=item.category;document.getElementById('mi-price').value=item.price;document.getElementById('mi-name-ro').value=item.name_ro||'';document.getElementById('mi-name-ru').value=item.name_ru||'';document.getElementById('mi-name-en').value=item.name_en||'';document.getElementById('mi-desc-ro').value=item.desc_ro||'';document.getElementById('mi-desc-ru').value=item.desc_ru||'';document.getElementById('mi-desc-en').value=item.desc_en||'';document.getElementById('mi-ing-ro').value=item.ingredients_ro||'';document.getElementById('mi-ing-ru').value=item.ingredients_ru||'';document.getElementById('mi-ing-en').value=item.ingredients_en||'';document.getElementById('mi-active').value=item.active;document.getElementById('mi-sort').value=item.sort_order||0;document.getElementById('modal-title').textContent='Editează: '+item.name_ro;openMenuModal(item);}catch(e){console.error(e);alert('Eroare!');}}
-async function saveMenuItem(e){e.preventDefault();const id=document.getElementById('mi-id').value;const fd=new FormData();fd.append('category',document.getElementById('mi-cat').value);fd.append('price',document.getElementById('mi-price').value);fd.append('name_ro',document.getElementById('mi-name-ro').value);fd.append('name_ru',document.getElementById('mi-name-ru').value);fd.append('name_en',document.getElementById('mi-name-en').value);fd.append('desc_ro',document.getElementById('mi-desc-ro').value);fd.append('desc_ru',document.getElementById('mi-desc-ru').value);fd.append('desc_en',document.getElementById('mi-desc-en').value);fd.append('ingredients_ro',document.getElementById('mi-ing-ro').value);fd.append('ingredients_ru',document.getElementById('mi-ing-ru').value);fd.append('ingredients_en',document.getElementById('mi-ing-en').value);fd.append('active',document.getElementById('mi-active').value);fd.append('sort_order',document.getElementById('mi-sort').value);const img=document.getElementById('mi-image').files[0];if(img)fd.append('image',img);try{const url=id?API+'/menu/'+id:API+'/menu';const r=await fetch(url,{method:id?'PUT':'POST',headers:headers(),body:fd});if(r.ok){closeMenuModal();loadMenu();}else throw new Error('Eroare');}catch(e){console.error(e);alert('Eroare!');}}
-async function deleteMenuItem(id){if(!confirm('Ștergi acest produs?'))return;try{const r=await fetch(API+'/menu/'+id,{method:'DELETE',headers:headers()});if(r.ok)loadMenu();else throw new Error('Eroare');}catch(e){console.error(e);alert('Eroare!');}}
+async function saveSettings(e) {
+    e.preventDefault();
+    const data = {};
+    new FormData(e.target).forEach((v, k) => { data[k] = v; });
 
-async function loadGallery(){try{const r=await fetch('/api/gallery');const items=await r.json();const g=document.getElementById('gallery-manage-grid');g.innerHTML='';items.forEach(item=>{const d=document.createElement('div');d.style.cssText='position:relative';d.innerHTML='<img src="'+item.image_url+'" style="width:120px;height:90px;object-fit:cover;border-radius:8px;border:1px solid #1a3d22"><button class="btn-sm btn-danger" style="position:absolute;top:2px;right:2px;padding:2px 6px;font-size:10px" onclick="deleteGalleryItem('+item.id+')">✕</button>';g.appendChild(d);});}catch(e){console.error(e);}}
-async function uploadGallery(e){e.preventDefault();const fd=new FormData();fd.append('image',document.getElementById('gal-file').files[0]);fd.append('type',document.getElementById('gal-type').value);try{const r=await fetch(API+'/gallery',{method:'POST',headers:headers(),body:fd});if(r.ok){document.getElementById('gallery-form').reset();loadGallery();}else throw new Error('Eroare');}catch(e){console.error(e);alert('Eroare!');}}
-async function deleteGalleryItem(id){if(!confirm('Ștergi?'))return;try{const r=await fetch(API+'/gallery/'+id,{method:'DELETE',headers:headers()});if(r.ok)loadGallery();else throw new Error('Eroare');}catch(e){console.error(e);alert('Eroare!');}}
+    try {
+        const rows = Object.entries(data).map(([key, value]) => ({ key, value: String(value ?? '') }));
+        const { error } = await supabaseClient.from('settings').upsert(rows, { onConflict: 'key' });
+        if (error) throw error;
+        alert('Salvat!');
+    } catch (err) {
+        console.error(err);
+        alert('Eroare!');
+    }
+}
 
-async function loadAboutSections(){try{const r=await fetch(API+'/about',{headers:headers()});const secs=await r.json();const c=document.getElementById('about-sections-admin');c.innerHTML='';secs.forEach(sec=>{const d=document.createElement('div');d.className='page-item';d.innerHTML=(sec.image_url?'<img src="'+sec.image_url+'" style="width:50px;height:50px;object-fit:cover;border-radius:6px">':'<div style="width:50px;height:50px;background:#1a3d22;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#8fa896;font-size:20px">📄</div>')+'<div class="page-info"><strong>'+( sec.title_ro||'—')+'</strong><small>Ord: '+sec.order_index+' | '+(sec.active?'✅':'❌')+'</small></div><button class="btn-sm" onclick="editAboutSection('+sec.id+')">Edit</button> <button class="btn-sm btn-danger" onclick="deleteAboutSection('+sec.id+')">Șterge</button>';c.appendChild(d);});}catch(e){console.error(e);}}
-function openAboutModal(sec=null){document.getElementById('about-editor').style.display='block';document.getElementById('about-modal-overlay').style.display='block';if(!sec){document.getElementById('about-modal-title').textContent='Adaugă Secțiune';document.getElementById('about-form').reset();document.getElementById('ab-id').value='';}}
-function closeAboutModal(){document.getElementById('about-editor').style.display='none';document.getElementById('about-modal-overlay').style.display='none';}
-async function editAboutSection(id){try{const r=await fetch(API+'/about',{headers:headers()});const secs=await r.json();const sec=secs.find(s=>s.id===id);if(!sec)return;document.getElementById('ab-id').value=sec.id;document.getElementById('ab-title-ro').value=sec.title_ro||'';document.getElementById('ab-title-ru').value=sec.title_ru||'';document.getElementById('ab-title-en').value=sec.title_en||'';document.getElementById('ab-text-ro').value=sec.text_ro||'';document.getElementById('ab-text-ru').value=sec.text_ru||'';document.getElementById('ab-text-en').value=sec.text_en||'';document.getElementById('ab-order').value=sec.order_index||0;document.getElementById('ab-active').value=sec.active;document.getElementById('about-modal-title').textContent='Editează: '+(sec.title_ro||'');openAboutModal(sec);}catch(e){console.error(e);alert('Eroare!');}}
-async function saveAboutSection(e){e.preventDefault();const id=document.getElementById('ab-id').value;const fd=new FormData();fd.append('title_ro',document.getElementById('ab-title-ro').value);fd.append('title_ru',document.getElementById('ab-title-ru').value);fd.append('title_en',document.getElementById('ab-title-en').value);fd.append('text_ro',document.getElementById('ab-text-ro').value);fd.append('text_ru',document.getElementById('ab-text-ru').value);fd.append('text_en',document.getElementById('ab-text-en').value);fd.append('order_index',document.getElementById('ab-order').value);fd.append('active',document.getElementById('ab-active').value);const img=document.getElementById('ab-image').files[0];if(img)fd.append('image',img);try{const r=await fetch(id?API+'/about/'+id:API+'/about',{method:id?'PUT':'POST',headers:headers(),body:fd});if(r.ok){closeAboutModal();loadAboutSections();}else throw new Error('Eroare');}catch(e){console.error(e);alert('Eroare!');}}
-async function deleteAboutSection(id){if(!confirm('Ștergi?'))return;try{const r=await fetch(API+'/about/'+id,{method:'DELETE',headers:headers()});if(r.ok)loadAboutSections();else throw new Error('Eroare');}catch(e){console.error(e);alert('Eroare!');}}
+async function loadHeroBgPreview() {
+    try {
+        const s = await fetchSettingsMap();
+        const p = document.getElementById('hero-bg-preview');
+        const btn = document.getElementById('delete-hero-bg-btn');
 
-async function loadSocial(){try{const r=await fetch(API+'/social',{headers:headers()});const links=await r.json();const c=document.getElementById('social-admin-list');c.innerHTML='';links.forEach(l=>{const d=document.createElement('div');d.className='social-admin-row';d.innerHTML='<span class="social-type">'+l.type+'</span><input type="text" data-type="'+l.type+'" value="'+(l.value||'')+'" placeholder="URL / numar"><label class="toggle-switch"><input type="checkbox" data-social-active="'+l.type+'" '+(l.active?'checked':'')+'><span class="toggle-slider"></span></label>';c.appendChild(d);});}catch(e){console.error(e);}}
-async function saveSocial(){const rows=document.querySelectorAll('.social-admin-row');const links=[];rows.forEach(r=>{const type=r.querySelector('[data-type]').dataset.type;const value=r.querySelector('[data-type]').value;const active=r.querySelector('[data-social-active]').checked;links.push({type,value,active});});try{const r=await fetch(API+'/social',{method:'POST',headers:jsonHeaders(),body:JSON.stringify(links)});if(r.ok)alert('Salvat!');else throw new Error('Eroare');}catch(e){console.error(e);alert('Eroare!');}}
+        if (s.hero_bg_url) {
+            p.innerHTML = s.hero_bg_type === 'video'
+                ? '<video src="' + s.hero_bg_url + '" style="max-width:300px;border-radius:8px" controls muted></video>'
+                : '<img src="' + s.hero_bg_url + '" style="max-width:300px;border-radius:8px">';
+            if (btn) btn.style.display = 'inline-block';
+        } else {
+            p.innerHTML = '<p style="color:#8fa896">Niciun fundal setat.</p>';
+            if (btn) btn.style.display = 'none';
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
 
-async function loadPromo(){try{const r=await fetch(API+'/promo',{headers:headers()});const p=await r.json();if(!p)return;document.getElementById('promo-active').checked=!!p.active;document.getElementById('promo-title-ro').value=p.title_ro||'';document.getElementById('promo-title-ru').value=p.title_ru||'';document.getElementById('promo-title-en').value=p.title_en||'';document.getElementById('promo-text-ro').value=p.text_ro||'';document.getElementById('promo-text-ru').value=p.text_ru||'';document.getElementById('promo-text-en').value=p.text_en||'';document.getElementById('promo-delay').value=p.delay_seconds||3;document.getElementById('promo-btn-url').value=p.button_url||'';document.getElementById('promo-btn-ro').value=p.button_text_ro||'';document.getElementById('promo-btn-ru').value=p.button_text_ru||'';document.getElementById('promo-btn-en').value=p.button_text_en||'';document.getElementById('promo-once').checked=!!p.show_once;}catch(e){console.error(e);}}
-async function savePromo(e){e.preventDefault();const fd=new FormData();fd.append('active',document.getElementById('promo-active').checked?'1':'0');fd.append('title_ro',document.getElementById('promo-title-ro').value);fd.append('title_ru',document.getElementById('promo-title-ru').value);fd.append('title_en',document.getElementById('promo-title-en').value);fd.append('text_ro',document.getElementById('promo-text-ro').value);fd.append('text_ru',document.getElementById('promo-text-ru').value);fd.append('text_en',document.getElementById('promo-text-en').value);fd.append('delay_seconds',document.getElementById('promo-delay').value);fd.append('button_url',document.getElementById('promo-btn-url').value);fd.append('button_text_ro',document.getElementById('promo-btn-ro').value);fd.append('button_text_ru',document.getElementById('promo-btn-ru').value);fd.append('button_text_en',document.getElementById('promo-btn-en').value);fd.append('show_once',document.getElementById('promo-once').checked?'1':'0');const img=document.getElementById('promo-image').files[0];if(img)fd.append('image',img);try{const r=await fetch(API+'/promo',{method:'POST',headers:headers(),body:fd});if(r.ok)alert('Salvat!');else throw new Error('Eroare');}catch(e){console.error(e);alert('Eroare!');}}
+async function uploadHeroBg(e) {
+    e.preventDefault();
+    const f = document.getElementById('hero-bg-file').files[0];
+    if (!f) return;
 
-async function loadLoader(){try{const r=await fetch('/api/loader');const d=await r.json();document.getElementById('loader-enabled').checked=d.loader_enabled!=='0';document.getElementById('loader-text-input').value=d.loader_text||'Roll Story';document.getElementById('loader-color-input').value=d.loader_color||'yellow';}catch(e){console.error(e);}}
-async function saveLoader(e){e.preventDefault();try{const r=await fetch(API+'/loader',{method:'POST',headers:jsonHeaders(),body:JSON.stringify({loader_enabled:document.getElementById('loader-enabled').checked?'1':'0',loader_text:document.getElementById('loader-text-input').value,loader_color:document.getElementById('loader-color-input').value})});if(r.ok)alert('Salvat!');else throw new Error('Eroare');}catch(e){console.error(e);alert('Eroare!');}}
+    try {
+        const url = await sbUploadImage(f);
+        const type = sbInferMediaType(f);
 
-async function loadPages(){try{const r=await fetch(API+'/pages',{headers:headers()});const pages=await r.json();const c=document.getElementById('pages-admin-list');c.innerHTML='';pages.forEach(pg=>{const d=document.createElement('div');d.className='page-item';d.innerHTML='<div class="page-info"><strong>'+pg.title_ro+'</strong><small>/page.html?slug='+pg.slug+' | Ord: '+pg.order_index+' | '+(pg.active?'✅':'❌')+'</small></div><button class="btn-sm" onclick="editPage('+pg.id+')">Edit</button> <button class="btn-sm btn-danger" onclick="deletePage('+pg.id+')">Șterge</button>';c.appendChild(d);});}catch(e){console.error(e);}}
-function openPageModal(){document.getElementById('page-editor').style.display='block';document.getElementById('page-modal-overlay').style.display='block';document.getElementById('page-modal-title').textContent='Adaugă Pagină';document.getElementById('page-form').reset();document.getElementById('pg-id').value='';}
-function closePageModal(){document.getElementById('page-editor').style.display='none';document.getElementById('page-modal-overlay').style.display='none';}
-async function editPage(id){try{const r=await fetch(API+'/pages',{headers:headers()});const pages=await r.json();const pg=pages.find(p=>p.id===id);if(!pg)return;document.getElementById('pg-id').value=pg.id;document.getElementById('pg-slug').value=pg.slug;document.getElementById('pg-order').value=pg.order_index||0;document.getElementById('pg-title-ro').value=pg.title_ro||'';document.getElementById('pg-title-ru').value=pg.title_ru||'';document.getElementById('pg-title-en').value=pg.title_en||'';document.getElementById('pg-content-ro').value=pg.content_ro||'';document.getElementById('pg-content-ru').value=pg.content_ru||'';document.getElementById('pg-content-en').value=pg.content_en||'';document.getElementById('pg-active').value=pg.active;document.getElementById('page-modal-title').textContent='Editează: '+pg.title_ro;openPageModal();}catch(e){console.error(e);alert('Eroare!');}}
-async function savePage(e){e.preventDefault();const id=document.getElementById('pg-id').value;const fd=new FormData();fd.append('slug',document.getElementById('pg-slug').value);fd.append('order_index',document.getElementById('pg-order').value);fd.append('title_ro',document.getElementById('pg-title-ro').value);fd.append('title_ru',document.getElementById('pg-title-ru').value);fd.append('title_en',document.getElementById('pg-title-en').value);fd.append('content_ro',document.getElementById('pg-content-ro').value);fd.append('content_ru',document.getElementById('pg-content-ru').value);fd.append('content_en',document.getElementById('pg-content-en').value);fd.append('active',document.getElementById('pg-active').value);const img=document.getElementById('pg-image').files[0];if(img)fd.append('image',img);try{const r=await fetch(id?API+'/pages/'+id:API+'/pages',{method:id?'PUT':'POST',headers:headers(),body:fd});if(r.ok){closePageModal();loadPages();}else{const d=await r.json();alert(d.error||'Eroare!');}}catch(e){console.error(e);alert('Eroare!');}}
-async function deletePage(id){if(!confirm('Ștergi pagina?'))return;try{const r=await fetch(API+'/pages/'+id,{method:'DELETE',headers:headers()});if(r.ok)loadPages();else throw new Error('Eroare');}catch(e){console.error(e);alert('Eroare!');}}
-=======
-async function saveSettings(e){e.preventDefault();const data={};new FormData(e.target).forEach((v,k)=>data[k]=v);try{await fetch(API+'/settings',{method:'POST',headers:jsonHeaders(),body:JSON.stringify(data)});alert('Salvat!');}catch(e){alert('Eroare!');}}
+        const { error } = await supabaseClient.from('settings').upsert([
+            { key: 'hero_bg_url', value: url },
+            { key: 'hero_bg_type', value: type }
+        ], { onConflict: 'key' });
+        if (error) throw error;
 
-async function loadHeroBgPreview(){try{const r=await fetch('/api/settings');const s=await r.json();const p=document.getElementById('hero-bg-preview');const btn=document.getElementById('delete-hero-bg-btn');if(s.hero_bg_url){const tag=s.hero_bg_type==='video'?`<video style="max-width:300px;border-radius:4px" controls><source src="${s.hero_bg_url}"></video>`:`<img src="${s.hero_bg_url}" style="max-width:300px;border-radius:4px">`;p.innerHTML=tag;btn.style.display='inline-block';}else{p.innerHTML='';btn.style.display='none';}}catch(e){console.error(e);}}
-async function uploadHeroBg(e){e.preventDefault();const f=document.getElementById('hero-bg-file').files[0];if(!f)return;const fd=new FormData();fd.append('image',f);try{const r=await fetch(API+'/hero-bg',{method:'POST',headers:headers(),body:fd});if(r.ok){alert('Încărcat!');loadHeroBgPreview();document.getElementById('hero-bg-file').value='';}else{const d=await r.json();alert(d.details||d.error);}}catch(e){alert('Eroare!');}}
-async function deleteHeroBg(){if(!confirm('Ștergi fundalul?'))return;try{const r=await fetch(API+'/hero-bg',{method:'DELETE',headers:headers()});if(r.ok){alert('Șters!');loadHeroBgPreview();}else alert('Eroare!');}catch(e){alert('Eroare!');}}
+        alert('Actualizat!');
+        document.getElementById('hero-bg-file').value = '';
+        loadHeroBgPreview();
+    } catch (err) {
+        console.error(err);
+        alert('Eroare!');
+    }
+}
 
-async function loadMenu(){try{const r=await fetch(API+'/menu',{headers:headers()});const items=await r.json();const tb=document.getElementById('menu-table-body');tb.innerHTML='';items.forEach(item=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${item.id}</td><td><img src="${item.image_url||''}" style="width:40px;height:40px;border-radius:3px;object-fit:cover;background:#ddd"></td><td>${item.name_ro}</td><td>${item.category}</td><td>${item.price}</td><td>${item.active?'Da':'Nu'}</td><td><button onclick="editMenuItem(${item.id})" class="btn-sm">Edit</button> <button onclick="deleteMenuItem(${item.id})" class="btn-sm btn-danger">Del</button></td>`;tb.appendChild(tr);});}catch(e){console.error(e);}}
-function openMenuModal(item=null){document.getElementById('menu-editor').style.display='block';document.getElementById('modal-overlay').style.display='block';if(!item){document.getElementById('modal-title').textContent='Adaugă Produs';document.getElementById('mi-id').value='';document.getElementById('mi-cat').value='shawarma';document.getElementById('mi-price').value='';document.getElementById('mi-name-ro').value='';document.getElementById('mi-name-ru').value='';document.getElementById('mi-name-en').value='';document.getElementById('mi-desc-ro').value='';document.getElementById('mi-desc-ru').value='';document.getElementById('mi-desc-en').value='';document.getElementById('mi-ing-ro').value='';document.getElementById('mi-ing-ru').value='';document.getElementById('mi-ing-en').value='';document.getElementById('mi-image').value='';document.getElementById('mi-active').value='1';document.getElementById('mi-sort').value='0';document.getElementById('modal-title').textContent='Adaugă Produs';}}
-function closeMenuModal(){document.getElementById('menu-editor').style.display='none';document.getElementById('modal-overlay').style.display='none';}
-async function editMenuItem(id){try{const r=await fetch('/api/menu/'+id);const item=await r.json();document.getElementById('mi-id').value=item.id;document.getElementById('mi-cat').value=item.category;document.getElementById('mi-price').value=item.price;document.getElementById('mi-name-ro').value=item.name_ro;document.getElementById('mi-name-ru').value=item.name_ru;document.getElementById('mi-name-en').value=item.name_en;document.getElementById('mi-desc-ro').value=item.desc_ro||'';document.getElementById('mi-desc-ru').value=item.desc_ru||'';document.getElementById('mi-desc-en').value=item.desc_en||'';document.getElementById('mi-ing-ro').value=item.ingredients_ro||'';document.getElementById('mi-ing-ru').value=item.ingredients_ru||'';document.getElementById('mi-ing-en').value=item.ingredients_en||'';document.getElementById('mi-active').value=item.active;document.getElementById('mi-sort').value=item.sort_order;document.getElementById('modal-title').textContent='Editează Produs';openMenuModal(true);}catch(e){alert('Eroare!');}}
-async function saveMenuItem(e){e.preventDefault();const id=document.getElementById('mi-id').value;const fd=new FormData();fd.append('category',document.getElementById('mi-cat').value);fd.append('price',document.getElementById('mi-price').value);fd.append('name_ro',document.getElementById('mi-name-ro').value);fd.append('name_ru',document.getElementById('mi-name-ru').value);fd.append('name_en',document.getElementById('mi-name-en').value);fd.append('desc_ro',document.getElementById('mi-desc-ro').value);fd.append('desc_ru',document.getElementById('mi-desc-ru').value);fd.append('desc_en',document.getElementById('mi-desc-en').value);fd.append('ingredients_ro',document.getElementById('mi-ing-ro').value);fd.append('ingredients_ru',document.getElementById('mi-ing-ru').value);fd.append('ingredients_en',document.getElementById('mi-ing-en').value);fd.append('active',document.getElementById('mi-active').value);fd.append('sort_order',document.getElementById('mi-sort').value);const img=document.getElementById('mi-image').files[0];if(img)fd.append('image',img);try{const r=await fetch(id?API+'/menu/'+id:API+'/menu',{method:id?'PUT':'POST',headers:headers(),body:fd});const d=await r.json();if(r.ok){alert('Salvat!');loadMenu();closeMenuModal();}else{alert(d.details||d.error);console.error(d);}}catch(e){alert('Eroare!');console.error(e);}}
-async function deleteMenuItem(id){if(!confirm('Ștergi acest produs?'))return;try{await fetch(API+'/menu/'+id,{method:'DELETE',headers:headers()});loadMenu();}catch(e){alert('Eroare!');}}
+async function deleteHeroBg() {
+    if (!confirm('Ștergi fundalul?')) return;
+    try {
+        const { error } = await supabaseClient.from('settings').upsert([
+            { key: 'hero_bg_url', value: '' },
+            { key: 'hero_bg_type', value: '' }
+        ], { onConflict: 'key' });
+        if (error) throw error;
+        alert('Șters!');
+        loadHeroBgPreview();
+    } catch (err) {
+        console.error(err);
+        alert('Eroare!');
+    }
+}
 
-async function loadGallery(){try{const r=await fetch('/api/gallery');const items=await r.json();const g=document.getElementById('gallery-manage-grid');g.innerHTML='';items.forEach(item=>{const d=document.createElement('div');d.style.cssText='position:relative;width:100px;height:100px;border-radius:4px;overflow:hidden;';d.innerHTML=`<img src="${item.image_url}" style="width:100%;height:100%;object-fit:cover"><button onclick="deleteGalleryItem(${item.id})" style="position:absolute;top:2px;right:2px;background:#d32f2f;color:#fff;border:none;padding:4px 6px;border-radius:2px;cursor:pointer;font-size:12px;">X</button>`;g.appendChild(d);});}catch(e){console.error(e);}}
-async function uploadGallery(e){e.preventDefault();const fd=new FormData();fd.append('image',document.getElementById('gal-file').files[0]);fd.append('type',document.getElementById('gal-type').value);try{const r=await fetch(API+'/gallery',{method:'POST',headers:headers(),body:fd});if(r.ok){alert('Adăugat!');loadGallery();document.getElementById('gal-file').value='';}else{const d=await r.json();alert(d.details||d.error);}}catch(e){alert('Eroare!');}}
-async function deleteGalleryItem(id){if(!confirm('Ștergi?'))return;try{await fetch(API+'/gallery/'+id,{method:'DELETE',headers:headers()});loadGallery();}catch(e){alert('Eroare!');}}
+async function loadMenu() {
+    try {
+        const { data: items, error } = await supabaseClient
+            .from('menu_items')
+            .select('*')
+            .order('category', { ascending: true })
+            .order('sort_order', { ascending: true })
+            .order('id', { ascending: true });
+        if (error) throw error;
 
-async function loadAboutSections(){try{const r=await fetch(API+'/about',{headers:headers()});const secs=await r.json();const c=document.getElementById('about-sections-admin');c.innerHTML='';secs.forEach(sec=>{const d=document.createElement('div');d.className='section-card';d.innerHTML=`<h4>${sec.title_ro}</h4><button onclick="editAboutSection(${sec.id})" class="btn-sm">Edit</button> <button onclick="deleteAboutSection(${sec.id})" class="btn-sm btn-danger">Del</button>`;c.appendChild(d);});}catch(e){console.error(e);}}
-function openAboutModal(sec=null){document.getElementById('about-editor').style.display='block';document.getElementById('about-modal-overlay').style.display='block';if(!sec){document.getElementById('about-modal-title').textContent='Adaugă Secțiune';document.getElementById('ab-id').value='';document.getElementById('ab-title-ro').value='';document.getElementById('ab-title-ru').value='';document.getElementById('ab-title-en').value='';document.getElementById('ab-text-ro').value='';document.getElementById('ab-text-ru').value='';document.getElementById('ab-text-en').value='';document.getElementById('ab-order').value='0';document.getElementById('ab-active').value='1';document.getElementById('ab-image').value='';}}
-function closeAboutModal(){document.getElementById('about-editor').style.display='none';document.getElementById('about-modal-overlay').style.display='none';}
-async function editAboutSection(id){try{const r=await fetch(API+'/about',{headers:headers()});const secs=await r.json();const sec=secs.find(s=>s.id===id);if(!sec)return;document.getElementById('ab-id').value=sec.id;document.getElementById('ab-title-ro').value=sec.title_ro;document.getElementById('ab-title-ru').value=sec.title_ru;document.getElementById('ab-title-en').value=sec.title_en;document.getElementById('ab-text-ro').value=sec.text_ro;document.getElementById('ab-text-ru').value=sec.text_ru;document.getElementById('ab-text-en').value=sec.text_en;document.getElementById('ab-order').value=sec.order_index;document.getElementById('ab-active').value=sec.active;document.getElementById('about-modal-title').textContent='Editează Secțiune';openAboutModal(true);}catch(e){alert('Eroare!');}}
-async function saveAboutSection(e){e.preventDefault();const id=document.getElementById('ab-id').value;const fd=new FormData();fd.append('title_ro',document.getElementById('ab-title-ro').value);fd.append('title_ru',document.getElementById('ab-title-ru').value);fd.append('title_en',document.getElementById('ab-title-en').value);fd.append('text_ro',document.getElementById('ab-text-ro').value);fd.append('text_ru',document.getElementById('ab-text-ru').value);fd.append('text_en',document.getElementById('ab-text-en').value);fd.append('order_index',document.getElementById('ab-order').value);fd.append('active',document.getElementById('ab-active').value);const img=document.getElementById('ab-image').files[0];if(img)fd.append('image',img);try{const r=await fetch(id?API+'/about/'+id:API+'/about',{method:id?'PUT':'POST',headers:headers(),body:fd});const d=await r.json();if(r.ok){alert('Salvat!');loadAboutSections();closeAboutModal();}else{alert(d.details||d.error);}}catch(e){alert('Eroare!');}}
-async function deleteAboutSection(id){if(!confirm('Ștergi?'))return;try{await fetch(API+'/about/'+id,{method:'DELETE',headers:headers()});loadAboutSections();}catch(e){alert('Eroare!');}}
+        const tb = document.getElementById('menu-table-body');
+        tb.innerHTML = '';
+        (items || []).forEach(item => {
+            const tr = document.createElement('tr');
+            const active = isActiveInt(item.active);
+            tr.style.opacity = active ? '1' : '0.55';
+            tr.innerHTML = '<td>' + item.id + '</td>'
+                + '<td>' + (item.image_url ? '<img src="' + item.image_url + '" style="width:44px;height:44px;object-fit:cover;border-radius:6px">' : '—') + '</td>'
+                + '<td><strong>' + (item.name_ro || '') + '</strong></td>'
+                + '<td><span style="background:rgba(255,227,42,0.1);padding:3px 8px;border-radius:4px;font-size:12px;color:#FFE32A">' + item.category + '</span></td>'
+                + '<td><strong>' + item.price + ' MDL</strong></td>'
+                + '<td>' + (active ? '✅' : '❌') + '</td>'
+                + '<td><button class="btn-sm" onclick="editMenuItem(' + item.id + ')">Edit</button> '
+                + '<button class="btn-sm ' + (active ? 'btn-danger' : 'btn-secondary') + '" onclick="' + (active ? 'deleteMenuItem(' : 'reactivateMenuItem(') + item.id + ')">'
+                + (active ? 'Șterge' : 'Reactivează') + '</button></td>';
+            tb.appendChild(tr);
+        });
+    } catch (e) {
+        console.error(e);
+    }
+}
 
-async function loadSocial(){try{const r=await fetch(API+'/social',{headers:headers()});const links=await r.json();const c=document.getElementById('social-admin-list');c.innerHTML='';links.forEach(link=>{const row=document.createElement('div');row.className='social-admin-row';row.innerHTML=`<div data-type="${link.type}">${link.type}</div><input type="text" value="${link.value}" class="social-value"><label><input type="checkbox" ${link.active?'checked':''}> Activ</label>`;row.style.cssText='display:flex;gap:10px;align-items:center;padding:10px;background:#f5f5f5;border-radius:4px;margin-bottom:8px;';c.appendChild(row);});}catch(e){console.error(e);}}
-async function saveSocial(){const rows=document.querySelectorAll('.social-admin-row');const links=[];rows.forEach(r=>{const type=r.querySelector('[data-type]').dataset.type;const value=r.querySelector('.social-value').value;const active=r.querySelector('input[type="checkbox"]').checked;links.push({type,value,active});});try{await fetch(API+'/social',{method:'POST',headers:jsonHeaders(),body:JSON.stringify(links)});alert('Salvat!');}catch(e){alert('Eroare!');}}
+function openMenuModal(item = null) {
+    document.getElementById('menu-editor').style.display = 'block';
+    document.getElementById('modal-overlay').style.display = 'block';
+    if (!item) {
+        document.getElementById('modal-title').textContent = 'Adaugă Produs';
+        document.getElementById('menu-item-form').reset();
+        document.getElementById('mi-id').value = '';
+    }
+}
 
-async function loadPromo(){try{const r=await fetch(API+'/promo',{headers:headers()});const p=await r.json();if(!p)return;document.getElementById('promo-active').checked=!!p.active;document.getElementById('promo-title-ro').value=p.title_ro||'';document.getElementById('promo-title-ru').value=p.title_ru||'';document.getElementById('promo-title-en').value=p.title_en||'';document.getElementById('promo-text-ro').value=p.text_ro||'';document.getElementById('promo-text-ru').value=p.text_ru||'';document.getElementById('promo-text-en').value=p.text_en||'';document.getElementById('promo-delay').value=p.delay_seconds||3;document.getElementById('promo-once').checked=!!p.show_once;document.getElementById('promo-btn-url').value=p.button_url||'';document.getElementById('promo-btn-ro').value=p.button_text_ro||'Comandă';document.getElementById('promo-btn-ru').value=p.button_text_ru||'Заказать';document.getElementById('promo-btn-en').value=p.button_text_en||'Order Now';}catch(e){console.error(e);}}
-async function savePromo(e){e.preventDefault();const fd=new FormData();fd.append('active',document.getElementById('promo-active').checked?'1':'0');fd.append('title_ro',document.getElementById('promo-title-ro').value);fd.append('title_ru',document.getElementById('promo-title-ru').value);fd.append('title_en',document.getElementById('promo-title-en').value);fd.append('text_ro',document.getElementById('promo-text-ro').value);fd.append('text_ru',document.getElementById('promo-text-ru').value);fd.append('text_en',document.getElementById('promo-text-en').value);fd.append('delay_seconds',document.getElementById('promo-delay').value);fd.append('show_once',document.getElementById('promo-once').checked?'1':'0');fd.append('button_url',document.getElementById('promo-btn-url').value);fd.append('button_text_ro',document.getElementById('promo-btn-ro').value);fd.append('button_text_ru',document.getElementById('promo-btn-ru').value);fd.append('button_text_en',document.getElementById('promo-btn-en').value);const img=document.getElementById('promo-image').files[0];if(img)fd.append('image',img);try{const r=await fetch(API+'/promo',{method:'POST',headers:headers(),body:fd});const d=await r.json();if(r.ok){alert('Salvat!');}else{alert(d.details||d.error);}}catch(e){alert('Eroare!');}}
+function closeMenuModal() {
+    document.getElementById('menu-editor').style.display = 'none';
+    document.getElementById('modal-overlay').style.display = 'none';
+}
 
-async function loadLoader(){try{const r=await fetch('/api/loader');const d=await r.json();document.getElementById('loader-enabled').checked=d.loader_enabled!=='0';document.getElementById('loader-text-input').value=d.loader_text||'Roll Story';document.getElementById('loader-color-input').value=d.loader_color||'yellow';}catch(e){console.error(e);}}
-async function saveLoader(e){e.preventDefault();try{await fetch(API+'/loader',{method:'POST',headers:jsonHeaders(),body:JSON.stringify({loader_enabled:document.getElementById('loader-enabled').checked,loader_text:document.getElementById('loader-text-input').value,loader_color:document.getElementById('loader-color-input').value})});alert('Salvat!');}catch(e){alert('Eroare!');}}
+async function editMenuItem(id) {
+    try {
+        const { data: item, error } = await supabaseClient.from('menu_items').select('*').eq('id', id).maybeSingle();
+        if (error || !item) throw error || new Error('not found');
 
-async function loadPages(){try{const r=await fetch(API+'/pages',{headers:headers()});const pages=await r.json();const c=document.getElementById('pages-admin-list');c.innerHTML='';pages.forEach(pg=>{const d=document.createElement('div');d.className='page-item';d.innerHTML=`<h4>${pg.title_ro}</h4><small>${pg.slug}</small><button onclick="editPage(${pg.id})" class="btn-sm">Edit</button> <button onclick="deletePage(${pg.id})" class="btn-sm btn-danger">Del</button>`;c.appendChild(d);});}catch(e){console.error(e);}}
-function openPageModal(){document.getElementById('page-editor').style.display='block';document.getElementById('page-modal-overlay').style.display='block';document.getElementById('page-modal-title').textContent='Adaugă Pagină';document.getElementById('pg-id').value='';document.getElementById('pg-slug').value='';document.getElementById('pg-order').value='0';document.getElementById('pg-title-ro').value='';document.getElementById('pg-title-ru').value='';document.getElementById('pg-title-en').value='';document.getElementById('pg-content-ro').value='';document.getElementById('pg-content-ru').value='';document.getElementById('pg-content-en').value='';document.getElementById('pg-active').value='1';document.getElementById('pg-image').value='';}
-function closePageModal(){document.getElementById('page-editor').style.display='none';document.getElementById('page-modal-overlay').style.display='none';}
-async function editPage(id){try{const r=await fetch(API+'/pages',{headers:headers()});const pages=await r.json();const pg=pages.find(p=>p.id===id);if(!pg)return;document.getElementById('pg-id').value=pg.id;document.getElementById('pg-slug').value=pg.slug;document.getElementById('pg-order').value=pg.order_index;document.getElementById('pg-title-ro').value=pg.title_ro;document.getElementById('pg-title-ru').value=pg.title_ru;document.getElementById('pg-title-en').value=pg.title_en;document.getElementById('pg-content-ro').value=pg.content_ro;document.getElementById('pg-content-ru').value=pg.content_ru;document.getElementById('pg-content-en').value=pg.content_en;document.getElementById('pg-active').value=pg.active;document.getElementById('page-modal-title').textContent='Editează Pagină';openPageModal();}catch(e){alert('Eroare!');}}
-async function savePage(e){e.preventDefault();const id=document.getElementById('pg-id').value;const fd=new FormData();fd.append('slug',document.getElementById('pg-slug').value);fd.append('order_index',document.getElementById('pg-order').value);fd.append('title_ro',document.getElementById('pg-title-ro').value);fd.append('title_ru',document.getElementById('pg-title-ru').value);fd.append('title_en',document.getElementById('pg-title-en').value);fd.append('content_ro',document.getElementById('pg-content-ro').value);fd.append('content_ru',document.getElementById('pg-content-ru').value);fd.append('content_en',document.getElementById('pg-content-en').value);fd.append('active',document.getElementById('pg-active').value);const img=document.getElementById('pg-image').files[0];if(img)fd.append('image',img);try{const r=await fetch(id?API+'/pages/'+id:API+'/pages',{method:id?'PUT':'POST',headers:headers(),body:fd});const d=await r.json();if(r.ok){alert('Salvat!');loadPages();closePageModal();}else{alert(d.details||d.error);}}catch(e){alert('Eroare!');}}
-async function deletePage(id){if(!confirm('Ștergi pagina?'))return;try{await fetch(API+'/pages/'+id,{method:'DELETE',headers:headers()});loadPages();}catch(e){alert('Eroare!');}}
->>>>>>> 93f54b9b42e2c7e22daf3e08eec31be9ef981b6a
+        document.getElementById('mi-id').value          = item.id;
+        document.getElementById('mi-cat').value         = item.category;
+        document.getElementById('mi-price').value       = item.price;
+        document.getElementById('mi-name-ro').value     = item.name_ro || '';
+        document.getElementById('mi-name-ru').value     = item.name_ru || '';
+        document.getElementById('mi-name-en').value     = item.name_en || '';
+        document.getElementById('mi-desc-ro').value     = item.desc_ro || '';
+        document.getElementById('mi-desc-ru').value     = item.desc_ru || '';
+        document.getElementById('mi-desc-en').value     = item.desc_en || '';
+        document.getElementById('mi-ing-ro').value      = item.ingredients_ro || '';
+        document.getElementById('mi-ing-ru').value      = item.ingredients_ru || '';
+        document.getElementById('mi-ing-en').value      = item.ingredients_en || '';
+        document.getElementById('mi-active').value      = item.active;
+        document.getElementById('mi-sort').value        = item.sort_order || 0;
+        document.getElementById('modal-title').textContent = 'Editează: ' + (item.name_ro || '');
+        openMenuModal(item);
+    } catch (e) {
+        console.error(e);
+        alert('Eroare!');
+    }
+}
+
+async function saveMenuItem(e) {
+    e.preventDefault();
+    const submitButton = e.submitter || e.target.querySelector('button[type="submit"]');
+    const id = document.getElementById('mi-id').value;
+    const actionKey = 'menu-save:' + (id || 'new');
+
+    await withPending(actionKey, async () => {
+        setButtonBusy(submitButton, true, 'Se salvează...');
+        const file = document.getElementById('mi-image').files[0];
+
+        const payload = {
+            category:        document.getElementById('mi-cat').value,
+            price:           parseFloat(document.getElementById('mi-price').value),
+            name_ro:         document.getElementById('mi-name-ro').value,
+            name_ru:         document.getElementById('mi-name-ru').value,
+            name_en:         document.getElementById('mi-name-en').value,
+            desc_ro:         document.getElementById('mi-desc-ro').value || null,
+            desc_ru:         document.getElementById('mi-desc-ru').value || null,
+            desc_en:         document.getElementById('mi-desc-en').value || null,
+            ingredients_ro:  document.getElementById('mi-ing-ro').value || null,
+            ingredients_ru:  document.getElementById('mi-ing-ru').value || null,
+            ingredients_en:  document.getElementById('mi-ing-en').value || null,
+            active:          parseInt(document.getElementById('mi-active').value, 10) || 0,
+            sort_order:      parseInt(document.getElementById('mi-sort').value, 10) || 0
+        };
+
+        if (!payload.category) {
+            alert('Categoria este obligatorie.');
+            return;
+        }
+
+        try {
+            if (file) payload.image_url = await sbUploadImage(file);
+
+            const { error } = id
+                ? await supabaseClient.from('menu_items').update(payload).eq('id', id)
+                : await supabaseClient.from('menu_items').insert([payload]);
+            if (error) throw error;
+
+            closeMenuModal();
+            await loadMenu();
+        } catch (err) {
+            console.error(err);
+            alert('Eroare!');
+        } finally {
+            setButtonBusy(submitButton, false);
+        }
+    });
+}
+
+async function deleteMenuItem(id) {
+    if (!confirm('Ștergi acest produs?')) return;
+    await withPending('menu-delete:' + id, async () => {
+        try {
+            const { error } = await supabaseClient.from('menu_items').update({ active: 0 }).eq('id', id);
+            if (error) throw error;
+            await loadMenu();
+        } catch (err) {
+            console.error(err);
+            alert('Eroare!');
+        }
+    });
+}
+
+async function reactivateMenuItem(id) {
+    await withPending('menu-reactivate:' + id, async () => {
+        try {
+            const { error } = await supabaseClient.from('menu_items').update({ active: 1 }).eq('id', id);
+            if (error) throw error;
+            await loadMenu();
+        } catch (err) {
+            console.error(err);
+            alert('Eroare!');
+        }
+    });
+}
+
+async function loadGallery() {
+    try {
+        const { data: items, error } = await supabaseClient
+            .from('gallery')
+            .select('*')
+            .order('sort_order', { ascending: true })
+            .order('id', { ascending: true });
+        if (error) throw error;
+
+        const g = document.getElementById('gallery-manage-grid');
+        g.innerHTML = '';
+        (items || []).forEach(item => {
+            const d = document.createElement('div');
+            d.style.cssText = 'position:relative';
+            d.innerHTML = '<img src="' + item.image_url + '" style="width:120px;height:90px;object-fit:cover;border-radius:8px;border:1px solid #1a3d22">'
+                + '<button class="btn-sm btn-danger" style="position:absolute;top:2px;right:2px;padding:2px 6px;font-size:10px" onclick="deleteGalleryItem(' + item.id + ')">✕</button>';
+            g.appendChild(d);
+        });
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function uploadGallery(e) {
+    e.preventDefault();
+    const submitButton = e.submitter || e.target.querySelector('button[type="submit"]');
+    await withPending('gallery-upload', async () => {
+        setButtonBusy(submitButton, true, 'Se încarcă...');
+        const file = document.getElementById('gal-file').files[0];
+        if (!file) return;
+
+        try {
+            const url = await sbUploadImage(file);
+            const { error } = await supabaseClient.from('gallery').insert([{
+                image_url: url,
+                type: document.getElementById('gal-type').value || 'interior',
+                sort_order: 0
+            }]);
+            if (error) throw error;
+
+            document.getElementById('gallery-form').reset();
+            await loadGallery();
+        } catch (err) {
+            console.error(err);
+            alert('Eroare!');
+        } finally {
+            setButtonBusy(submitButton, false);
+        }
+    });
+}
+
+async function deleteGalleryItem(id) {
+    if (!confirm('Ștergi?')) return;
+    try {
+        const { error } = await supabaseClient.from('gallery').delete().eq('id', id);
+        if (error) throw error;
+        loadGallery();
+    } catch (err) {
+        console.error(err);
+        alert('Eroare!');
+    }
+}
+
+async function loadAboutSections() {
+    try {
+        const { data: secs, error } = await supabaseClient
+            .from('about_sections')
+            .select('*')
+            .order('order_index', { ascending: true })
+            .order('id', { ascending: true });
+        if (error) throw error;
+
+        const c = document.getElementById('about-sections-admin');
+        c.innerHTML = '';
+        (secs || []).forEach(sec => {
+            const d = document.createElement('div');
+            d.className = 'page-item';
+            d.innerHTML = (sec.image_url
+                    ? '<img src="' + sec.image_url + '" style="width:50px;height:50px;object-fit:cover;border-radius:6px">'
+                    : '<div style="width:50px;height:50px;background:#1a3d22;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#8fa896;font-size:20px">📄</div>')
+                + '<div class="page-info"><strong>' + (sec.title_ro || '—') + '</strong><small>Ord: ' + sec.order_index + ' | ' + (sec.active ? '✅' : '❌') + '</small></div>'
+                + '<button class="btn-sm" onclick="editAboutSection(' + sec.id + ')">Edit</button> '
+                + '<button class="btn-sm btn-danger" onclick="deleteAboutSection(' + sec.id + ')">Șterge</button>';
+            c.appendChild(d);
+        });
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function openAboutModal(sec = null) {
+    document.getElementById('about-editor').style.display = 'block';
+    document.getElementById('about-modal-overlay').style.display = 'block';
+    if (!sec) {
+        document.getElementById('about-modal-title').textContent = 'Adaugă Secțiune';
+        document.getElementById('about-form').reset();
+        document.getElementById('ab-id').value = '';
+    }
+}
+
+function closeAboutModal() {
+    document.getElementById('about-editor').style.display = 'none';
+    document.getElementById('about-modal-overlay').style.display = 'none';
+}
+
+async function editAboutSection(id) {
+    try {
+        const { data: sec, error } = await supabaseClient.from('about_sections').select('*').eq('id', id).maybeSingle();
+        if (error || !sec) throw error || new Error('not found');
+
+        document.getElementById('ab-id').value        = sec.id;
+        document.getElementById('ab-title-ro').value  = sec.title_ro || '';
+        document.getElementById('ab-title-ru').value  = sec.title_ru || '';
+        document.getElementById('ab-title-en').value  = sec.title_en || '';
+        document.getElementById('ab-text-ro').value   = sec.text_ro || '';
+        document.getElementById('ab-text-ru').value   = sec.text_ru || '';
+        document.getElementById('ab-text-en').value   = sec.text_en || '';
+        document.getElementById('ab-order').value     = sec.order_index || 0;
+        document.getElementById('ab-active').value    = sec.active;
+        document.getElementById('about-modal-title').textContent = 'Editează: ' + (sec.title_ro || '');
+        openAboutModal(sec);
+    } catch (e) {
+        console.error(e);
+        alert('Eroare!');
+    }
+}
+
+async function saveAboutSection(e) {
+    e.preventDefault();
+    const submitButton = e.submitter || e.target.querySelector('button[type="submit"]');
+    const id = document.getElementById('ab-id').value;
+    await withPending('about-save:' + (id || 'new'), async () => {
+        setButtonBusy(submitButton, true, 'Se salvează...');
+        const file = document.getElementById('ab-image').files[0];
+
+        const payload = {
+            title_ro:    document.getElementById('ab-title-ro').value,
+            title_ru:    document.getElementById('ab-title-ru').value,
+            title_en:    document.getElementById('ab-title-en').value,
+            text_ro:     document.getElementById('ab-text-ro').value,
+            text_ru:     document.getElementById('ab-text-ru').value,
+            text_en:     document.getElementById('ab-text-en').value,
+            order_index: parseInt(document.getElementById('ab-order').value, 10) || 0,
+            active:      parseInt(document.getElementById('ab-active').value, 10) || 0
+        };
+
+        try {
+            if (file) payload.image_url = await sbUploadImage(file);
+
+            const { error } = id
+                ? await supabaseClient.from('about_sections').update(payload).eq('id', id)
+                : await supabaseClient.from('about_sections').insert([payload]);
+            if (error) throw error;
+
+            closeAboutModal();
+            await loadAboutSections();
+        } catch (err) {
+            console.error(err);
+            alert('Eroare!');
+        } finally {
+            setButtonBusy(submitButton, false);
+        }
+    });
+}
+
+async function deleteAboutSection(id) {
+    if (!confirm('Ștergi?')) return;
+    try {
+        const { error } = await supabaseClient.from('about_sections').delete().eq('id', id);
+        if (error) throw error;
+        loadAboutSections();
+    } catch (err) {
+        console.error(err);
+        alert('Eroare!');
+    }
+}
+
+async function loadSocial() {
+    try {
+        const { data: links, error } = await supabaseClient
+            .from('social_links')
+            .select('*')
+            .order('id', { ascending: true });
+        if (error) throw error;
+
+        const c = document.getElementById('social-admin-list');
+        c.innerHTML = '';
+        (links || []).forEach(l => {
+            const d = document.createElement('div');
+            d.className = 'social-admin-row';
+            d.innerHTML = '<span class="social-type">' + l.type + '</span>'
+                + '<input type="text" data-type="' + l.type + '" value="' + (l.value || '') + '" placeholder="URL / numar">'
+                + '<label class="toggle-switch"><input type="checkbox" data-social-active="' + l.type + '" ' + (l.active ? 'checked' : '') + '><span class="toggle-slider"></span></label>';
+            c.appendChild(d);
+        });
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function saveSocial() {
+    const rows = document.querySelectorAll('.social-admin-row');
+    const links = [];
+    rows.forEach(r => {
+        const type = r.querySelector('[data-type]').dataset.type;
+        const value = r.querySelector('[data-type]').value;
+        const active = r.querySelector('[data-social-active]').checked ? 1 : 0;
+        links.push({ type, value, active });
+    });
+
+    try {
+        const { error } = await supabaseClient.from('social_links').upsert(links, { onConflict: 'type' });
+        if (error) throw error;
+        alert('Salvat!');
+    } catch (err) {
+        console.error(err);
+        alert('Eroare!');
+    }
+}
+
+async function loadPromo() {
+    try {
+        const { data: p, error } = await supabaseClient
+            .from('promo_popup')
+            .select('*')
+            .order('id', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+        if (error) throw error;
+        if (!p) return;
+
+        document.getElementById('promo-active').checked   = !!p.active;
+        document.getElementById('promo-title-ro').value   = p.title_ro || '';
+        document.getElementById('promo-title-ru').value   = p.title_ru || '';
+        document.getElementById('promo-title-en').value   = p.title_en || '';
+        document.getElementById('promo-text-ro').value    = p.text_ro || '';
+        document.getElementById('promo-text-ru').value    = p.text_ru || '';
+        document.getElementById('promo-text-en').value    = p.text_en || '';
+        document.getElementById('promo-delay').value      = p.delay_seconds || 3;
+        document.getElementById('promo-btn-url').value    = p.button_url || '';
+        document.getElementById('promo-btn-ro').value     = p.button_text_ro || '';
+        document.getElementById('promo-btn-ru').value     = p.button_text_ru || '';
+        document.getElementById('promo-btn-en').value     = p.button_text_en || '';
+        document.getElementById('promo-once').checked     = !!p.show_once;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function savePromo(e) {
+    e.preventDefault();
+    const submitButton = e.submitter || e.target.querySelector('button[type="submit"]');
+    await withPending('promo-save', async () => {
+        setButtonBusy(submitButton, true, 'Se salvează...');
+        const file = document.getElementById('promo-image').files[0];
+
+        const payload = {
+            active:          document.getElementById('promo-active').checked ? 1 : 0,
+            title_ro:        document.getElementById('promo-title-ro').value,
+            title_ru:        document.getElementById('promo-title-ru').value,
+            title_en:        document.getElementById('promo-title-en').value,
+            text_ro:         document.getElementById('promo-text-ro').value,
+            text_ru:         document.getElementById('promo-text-ru').value,
+            text_en:         document.getElementById('promo-text-en').value,
+            delay_seconds:   parseInt(document.getElementById('promo-delay').value, 10) || 3,
+            button_url:      document.getElementById('promo-btn-url').value || '',
+            button_text_ro:  document.getElementById('promo-btn-ro').value || 'Comandă',
+            button_text_ru:  document.getElementById('promo-btn-ru').value || 'Заказать',
+            button_text_en:  document.getElementById('promo-btn-en').value || 'Order Now',
+            show_once:       document.getElementById('promo-once').checked ? 1 : 0
+        };
+
+        try {
+            if (file) payload.image_url = await sbUploadImage(file);
+
+            const { data: existing } = await supabaseClient.from('promo_popup').select('id').limit(1).maybeSingle();
+            const { error } = existing
+                ? await supabaseClient.from('promo_popup').update(payload).eq('id', existing.id)
+                : await supabaseClient.from('promo_popup').insert([payload]);
+            if (error) throw error;
+
+            alert('Salvat!');
+        } catch (err) {
+            console.error(err);
+            alert('Eroare!');
+        } finally {
+            setButtonBusy(submitButton, false);
+        }
+    });
+}
+
+async function loadLoader() {
+    try {
+        const { data, error } = await supabaseClient.from('settings').select('key,value').like('key', 'loader_%');
+        if (error) throw error;
+        const d = sbRowsToMap(data);
+        document.getElementById('loader-enabled').checked     = d.loader_enabled !== '0';
+        document.getElementById('loader-text-input').value    = d.loader_text || 'Roll Story';
+        document.getElementById('loader-color-input').value   = d.loader_color || 'yellow';
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function saveLoader(e) {
+    e.preventDefault();
+    try {
+        const rows = [
+            { key: 'loader_enabled', value: document.getElementById('loader-enabled').checked ? '1' : '0' },
+            { key: 'loader_text',    value: document.getElementById('loader-text-input').value },
+            { key: 'loader_color',   value: document.getElementById('loader-color-input').value }
+        ];
+        const { error } = await supabaseClient.from('settings').upsert(rows, { onConflict: 'key' });
+        if (error) throw error;
+        alert('Salvat!');
+    } catch (err) {
+        console.error(err);
+        alert('Eroare!');
+    }
+}
+
+async function loadPages() {
+    try {
+        const { data: pages, error } = await supabaseClient
+            .from('static_pages')
+            .select('*')
+            .order('order_index', { ascending: true })
+            .order('id', { ascending: true });
+        if (error) throw error;
+
+        const c = document.getElementById('pages-admin-list');
+        c.innerHTML = '';
+        (pages || []).forEach(pg => {
+            const d = document.createElement('div');
+            d.className = 'page-item';
+            d.innerHTML = '<div class="page-info"><strong>' + (pg.title_ro || '') + '</strong><small>/page.html?slug=' + pg.slug + ' | Ord: ' + pg.order_index + ' | ' + (pg.active ? '✅' : '❌') + '</small></div>'
+                + '<button class="btn-sm" onclick="editPage(' + pg.id + ')">Edit</button> '
+                + '<button class="btn-sm btn-danger" onclick="deletePage(' + pg.id + ')">Șterge</button>';
+            c.appendChild(d);
+        });
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function openPageModal(isEdit = false) {
+    document.getElementById('page-editor').style.display = 'block';
+    document.getElementById('page-modal-overlay').style.display = 'block';
+    if (!isEdit) {
+        document.getElementById('page-modal-title').textContent = 'Adaugă Pagină';
+        document.getElementById('page-form').reset();
+        document.getElementById('pg-id').value = '';
+    }
+}
+
+function closePageModal() {
+    document.getElementById('page-editor').style.display = 'none';
+    document.getElementById('page-modal-overlay').style.display = 'none';
+}
+
+async function editPage(id) {
+    try {
+        const { data: pg, error } = await supabaseClient.from('static_pages').select('*').eq('id', id).maybeSingle();
+        if (error || !pg) throw error || new Error('not found');
+
+        openPageModal(true);
+        document.getElementById('pg-id').value         = pg.id;
+        document.getElementById('pg-slug').value       = pg.slug;
+        document.getElementById('pg-order').value      = pg.order_index || 0;
+        document.getElementById('pg-title-ro').value   = pg.title_ro || '';
+        document.getElementById('pg-title-ru').value   = pg.title_ru || '';
+        document.getElementById('pg-title-en').value   = pg.title_en || '';
+        document.getElementById('pg-content-ro').value = pg.content_ro || '';
+        document.getElementById('pg-content-ru').value = pg.content_ru || '';
+        document.getElementById('pg-content-en').value = pg.content_en || '';
+        document.getElementById('pg-active').value     = pg.active;
+        document.getElementById('pg-image').value      = '';
+        document.getElementById('page-modal-title').textContent = 'Editează: ' + (pg.title_ro || '');
+    } catch (e) {
+        console.error(e);
+        alert('Eroare!');
+    }
+}
+
+async function savePage(e) {
+    e.preventDefault();
+    const submitButton = e.submitter || e.target.querySelector('button[type="submit"]');
+    const id = document.getElementById('pg-id').value;
+    await withPending('page-save:' + (id || 'new'), async () => {
+        setButtonBusy(submitButton, true, 'Se salvează...');
+        const file = document.getElementById('pg-image').files[0];
+
+        const payload = {
+            slug:        document.getElementById('pg-slug').value,
+            order_index: parseInt(document.getElementById('pg-order').value, 10) || 0,
+            title_ro:    document.getElementById('pg-title-ro').value,
+            title_ru:    document.getElementById('pg-title-ru').value,
+            title_en:    document.getElementById('pg-title-en').value,
+            content_ro:  document.getElementById('pg-content-ro').value || '',
+            content_ru:  document.getElementById('pg-content-ru').value || '',
+            content_en:  document.getElementById('pg-content-en').value || '',
+            active:      parseInt(document.getElementById('pg-active').value, 10) || 0
+        };
+
+        try {
+            if (file) payload.image_url = await sbUploadImage(file);
+
+            const { error } = id
+                ? await supabaseClient.from('static_pages').update(payload).eq('id', id)
+                : await supabaseClient.from('static_pages').insert([payload]);
+
+            if (error) {
+                if (error.code === '23505') {
+                    alert('Slug-ul există deja.');
+                    return;
+                }
+                throw error;
+            }
+
+            closePageModal();
+            await loadPages();
+        } catch (err) {
+            console.error(err);
+            alert('Eroare!');
+        } finally {
+            setButtonBusy(submitButton, false);
+        }
+    });
+}
+
+async function deletePage(id) {
+    if (!confirm('Ștergi pagina?')) return;
+    try {
+        const { error } = await supabaseClient.from('static_pages').delete().eq('id', id);
+        if (error) throw error;
+        loadPages();
+    } catch (err) {
+        console.error(err);
+        alert('Eroare!');
+    }
+}
 
 async function changePassword(e) {
     e.preventDefault();
     const current = document.getElementById('cp-current').value;
     const newPwd  = document.getElementById('cp-new').value;
-    const confirm = document.getElementById('cp-confirm').value;
-    const msg     = document.getElementById('cp-msg');
+    const confirmPwd = document.getElementById('cp-confirm').value;
+    const msg = document.getElementById('cp-msg');
 
     msg.style.display = 'none';
 
-    if (newPwd !== confirm) {
+    if (newPwd !== confirmPwd) {
         msg.textContent = 'Parolele noi nu coincid.';
         msg.style.color = '#ff4d4d';
         msg.style.display = 'block';
@@ -117,24 +782,189 @@ async function changePassword(e) {
     }
 
     try {
-        const r = await fetch(API + '/change-password', {
-            method: 'POST',
-            headers: jsonHeaders(),
-            body: JSON.stringify({ current_password: current, new_password: newPwd })
-        });
-        const data = await r.json();
-        if (r.ok) {
-            msg.textContent = 'Parola a fost schimbata cu succes.';
-            msg.style.color = '#4CAF50';
-            document.getElementById('change-password-form').reset();
-        } else {
-            msg.textContent = data.error || 'Eroare la schimbarea parolei.';
+        const { data: userData } = await supabaseClient.auth.getUser();
+        const email = userData?.user?.email;
+        if (!email) throw new Error('No session');
+
+        const { error: signInErr } = await supabaseClient.auth.signInWithPassword({ email, password: current });
+        if (signInErr) {
+            msg.textContent = 'Parola curentă este incorectă.';
             msg.style.color = '#ff4d4d';
+            msg.style.display = 'block';
+            return;
         }
+
+        const { error: updateErr } = await supabaseClient.auth.updateUser({ password: newPwd });
+        if (updateErr) throw updateErr;
+
+        msg.textContent = 'Parola a fost schimbata cu succes.';
+        msg.style.color = '#4CAF50';
         msg.style.display = 'block';
+        document.getElementById('change-password-form').reset();
     } catch (err) {
-        msg.textContent = 'Eroare de conexiune.';
+        console.error(err);
+        msg.textContent = 'Eroare la schimbarea parolei.';
         msg.style.color = '#ff4d4d';
         msg.style.display = 'block';
     }
+}
+
+function ensureTestimonialsAdminUI() {
+    if (document.getElementById('testimonials-admin-list')) return;
+    const adminContainer = document.querySelector('.admin-container');
+    if (!adminContainer) return;
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = ''
+        + '<h2><i class="ph ph-chat-circle-text"></i> Customer Reviews</h2>'
+        + '<button onclick="openTestimonialModal()" style="margin-bottom:15px"><i class="ph ph-plus"></i> Adaugă Review</button>'
+        + '<div id="testimonials-admin-list" class="pages-list"></div>';
+    adminContainer.appendChild(card);
+
+    const overlay = document.createElement('div');
+    overlay.id = 'testimonial-modal-overlay';
+    overlay.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999';
+    overlay.onclick = closeTestimonialModal;
+    document.body.appendChild(overlay);
+
+    const modal = document.createElement('div');
+    modal.id = 'testimonial-editor';
+    modal.className = 'card';
+    modal.style.cssText = 'display:none;position:fixed;top:5%;left:50%;transform:translateX(-50%);width:92%;max-width:650px;max-height:90vh;overflow-y:auto;z-index:1000';
+    modal.innerHTML = ''
+        + '<h2 id="testimonial-modal-title">Adaugă Review</h2>'
+        + '<form id="testimonial-form">'
+        + '<input type="hidden" id="ts-id">'
+        + '<div class="form-grid">'
+        + '<div><label>Autor</label><input type="text" id="ts-author" required></div>'
+        + '<div><label>Rating</label><input type="number" id="ts-rating" min="1" max="5" value="5"></div>'
+        + '<div style="grid-column:span 2"><label>Conținut</label><textarea id="ts-content" rows="4" required></textarea></div>'
+        + '<div><label>Activ</label><select id="ts-active"><option value="1">Da</option><option value="0">Nu</option></select></div>'
+        + '</div>'
+        + '<div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end">'
+        + '<button type="button" onclick="closeTestimonialModal()" class="btn-secondary">Anulează</button>'
+        + '<button type="submit">Salvează</button>'
+        + '</div>'
+        + '</form>';
+    document.body.appendChild(modal);
+    document.getElementById('testimonial-form').addEventListener('submit', saveTestimonial);
+}
+
+async function loadTestimonials() {
+    const list = document.getElementById('testimonials-admin-list');
+    if (!list) return;
+    try {
+        const { data: testimonials, error } = await supabaseClient
+            .from('testimonials')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .order('id', { ascending: false });
+        if (error) throw error;
+
+        list.innerHTML = '';
+        (testimonials || []).forEach(item => {
+            const active = isActiveInt(item.active);
+            const row = document.createElement('div');
+            row.className = 'page-item';
+            row.style.opacity = active ? '1' : '0.55';
+            row.innerHTML = '<div class="page-info"><strong>' + (item.author_name || '—') + '</strong><small>'
+                + 'Rating: ' + (item.rating || 5) + '/5 | ' + (active ? '✅' : '❌') + '<br>' + (item.content || '')
+                + '</small></div>'
+                + '<button class="btn-sm" onclick="editTestimonial(' + item.id + ')">Edit</button> '
+                + '<button class="btn-sm ' + (active ? 'btn-danger' : 'btn-secondary') + '" onclick="' + (active ? 'deactivateTestimonial(' : 'reactivateTestimonial(') + item.id + ')">'
+                + (active ? 'Dezactivează' : 'Reactivează') + '</button>';
+            list.appendChild(row);
+        });
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function openTestimonialModal() {
+    document.getElementById('testimonial-editor').style.display = 'block';
+    document.getElementById('testimonial-modal-overlay').style.display = 'block';
+    document.getElementById('testimonial-modal-title').textContent = 'Adaugă Review';
+    document.getElementById('testimonial-form').reset();
+    document.getElementById('ts-id').value = '';
+    document.getElementById('ts-rating').value = '5';
+    document.getElementById('ts-active').value = '1';
+}
+
+function closeTestimonialModal() {
+    document.getElementById('testimonial-editor').style.display = 'none';
+    document.getElementById('testimonial-modal-overlay').style.display = 'none';
+}
+
+async function editTestimonial(id) {
+    try {
+        const { data, error } = await supabaseClient.from('testimonials').select('*').eq('id', id).maybeSingle();
+        if (error || !data) throw error || new Error('not found');
+        document.getElementById('ts-id').value = data.id;
+        document.getElementById('ts-author').value = data.author_name || '';
+        document.getElementById('ts-content').value = data.content || '';
+        document.getElementById('ts-rating').value = data.rating || 5;
+        document.getElementById('ts-active').value = data.active;
+        document.getElementById('testimonial-modal-title').textContent = 'Editează Review';
+        document.getElementById('testimonial-editor').style.display = 'block';
+        document.getElementById('testimonial-modal-overlay').style.display = 'block';
+    } catch (e) {
+        console.error(e);
+        alert('Eroare!');
+    }
+}
+
+async function saveTestimonial(e) {
+    e.preventDefault();
+    const submitButton = e.submitter || e.target.querySelector('button[type="submit"]');
+    const id = document.getElementById('ts-id').value;
+    await withPending('testimonial-save:' + (id || 'new'), async () => {
+        setButtonBusy(submitButton, true, 'Se salvează...');
+        const payload = {
+            author_name: document.getElementById('ts-author').value,
+            content: document.getElementById('ts-content').value,
+            rating: parseInt(document.getElementById('ts-rating').value, 10) || 5,
+            active: parseInt(document.getElementById('ts-active').value, 10) || 0
+        };
+
+        try {
+            const { error } = id
+                ? await supabaseClient.from('testimonials').update(payload).eq('id', id)
+                : await supabaseClient.from('testimonials').insert([payload]);
+            if (error) throw error;
+            closeTestimonialModal();
+            await loadTestimonials();
+        } catch (err) {
+            console.error(err);
+            alert('Eroare!');
+        } finally {
+            setButtonBusy(submitButton, false);
+        }
+    });
+}
+
+async function deactivateTestimonial(id) {
+    await withPending('testimonial-deactivate:' + id, async () => {
+        try {
+            const { error } = await supabaseClient.from('testimonials').update({ active: 0 }).eq('id', id);
+            if (error) throw error;
+            await loadTestimonials();
+        } catch (err) {
+            console.error(err);
+            alert('Eroare!');
+        }
+    });
+}
+
+async function reactivateTestimonial(id) {
+    await withPending('testimonial-reactivate:' + id, async () => {
+        try {
+            const { error } = await supabaseClient.from('testimonials').update({ active: 1 }).eq('id', id);
+            if (error) throw error;
+            await loadTestimonials();
+        } catch (err) {
+            console.error(err);
+            alert('Eroare!');
+        }
+    });
 }

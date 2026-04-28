@@ -1,10 +1,7 @@
-// Roll Story — frontend logic
-// Settings, menu, gallery, about, social links, modals, promo popup, loader, scroll.
-
 let cachedMenuItems = [];
 let cachedSettings = {};
+const supabaseClient = window.supabaseClient;
 
-// Map of social link types to their Phosphor icon markup.
 const SOCIAL_ICONS = {
     instagram: '<i class="ph-fill ph-instagram-logo"></i>',
     facebook:  '<i class="ph-fill ph-facebook-logo"></i>',
@@ -17,7 +14,6 @@ const SOCIAL_ICONS = {
     youtube:   '<i class="ph-fill ph-youtube-logo"></i>'
 };
 
-// Build a correctly-formatted URL for a given social link type and value.
 function getSocialUrl(type, value) {
     if (!value) return '#';
     switch (type) {
@@ -34,7 +30,6 @@ function getSocialUrl(type, value) {
     }
 }
 
-// Populate a container element with social icon links.
 function renderSocialIcons(links, container) {
     if (!container || !links || !links.length) return;
     container.innerHTML = '';
@@ -51,58 +46,143 @@ function renderSocialIcons(links, container) {
     });
 }
 
-// --- Init ---
+function isActiveValue(value) {
+    return value === true || value === 1 || value === '1';
+}
+
+async function fetchSettings() {
+    const { data, error } = await supabaseClient.from('settings').select('key,value');
+    if (error) throw error;
+    return sbRowsToMap(data);
+}
+
+async function fetchLoaderConfig() {
+    const { data, error } = await supabaseClient.from('settings').select('key,value').like('key', 'loader_%');
+    if (error) throw error;
+    return sbRowsToMap(data);
+}
+
+async function fetchMenuItems() {
+    const { data, error } = await supabaseClient
+        .from('menu_items')
+        .select('*')
+        .order('sort_order', { ascending: true })
+        .order('id', { ascending: true });
+    if (error) throw error;
+    return (data || []).filter(item => isActiveValue(item.active));
+}
+
+async function fetchGallery() {
+    const { data, error } = await supabaseClient
+        .from('gallery')
+        .select('*')
+        .order('sort_order', { ascending: true })
+        .order('id', { ascending: true });
+    if (error) throw error;
+    return data || [];
+}
+
+async function fetchAboutSections() {
+    const { data, error } = await supabaseClient
+        .from('about_sections')
+        .select('*')
+        .order('order_index', { ascending: true })
+        .order('id', { ascending: true });
+    if (error) throw error;
+    return (data || []).filter(section => isActiveValue(section.active));
+}
+
+async function fetchSocialLinks() {
+    const { data, error } = await supabaseClient
+        .from('social_links')
+        .select('*')
+        .order('id', { ascending: true });
+    if (error) throw error;
+    return (data || []).filter(link => isActiveValue(link.active));
+}
+
+async function fetchNavPages() {
+    const { data, error } = await supabaseClient
+        .from('static_pages')
+        .select('id, slug, title_ro, title_ru, title_en, order_index, active')
+        .order('order_index', { ascending: true })
+        .order('id', { ascending: true });
+    if (error) throw error;
+    return (data || []).filter(page => isActiveValue(page.active));
+}
+
+async function fetchPageBySlug(slug) {
+    const s = String(slug || '').trim();
+    if (!s) return null;
+
+    const { data, error } = await supabaseClient
+        .from('static_pages')
+        .select('*')
+        .ilike('slug', s)
+        .order('id', { ascending: false })
+        .limit(1)
+        ;
+    if (error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    return row || null;
+}
+
+async function fetchPromo() {
+    const { data, error } = await supabaseClient
+        .from('promo_popup')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
+    if (error) throw error;
+    return data && isActiveValue(data.active) ? data : null;
+}
+
+async function fetchTestimonials() {
+    const { data, error } = await supabaseClient
+        .from('testimonials')
+        .select('*')
+        .eq('active', 1)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false });
+    if (error) throw error;
+    return data || [];
+}
 
 window.addEventListener('DOMContentLoaded', async () => {
     initScrollAnimations();
     initHeaderScroll();
     createModalContainers();
 
-    // Load site settings first — they affect almost everything else.
     try {
-        const res = await fetch('/api/settings');
-        if (res.ok) {
-            cachedSettings = await res.json();
-            applySettingsToUI();
-            updateDynamicTranslations();
-            applyHeroBackground();
-        }
-    } catch (e) { /* settings unavailable — site still functions with defaults */ }
+        cachedSettings = await fetchSettings();
+        applySettingsToUI();
+        updateDynamicTranslations();
+        applyHeroBackground();
+    } catch (e) { console.error('Failed to load settings', e); }
 
-    // Loader config
     try {
-        const res = await fetch('/api/loader');
-        if (res.ok) applyLoaderSettings(await res.json());
-    } catch (e) { /* non-critical */ }
+        applyLoaderSettings(await fetchLoaderConfig());
+    } catch (e) { console.error('Failed to load loader settings', e); }
 
-    // Menu (home featured grid or full menu page)
     if (document.getElementById('menu-grid') || document.getElementById('featured-grid')) {
         try {
-            const res = await fetch('/api/menu');
-            if (res.ok) {
-                cachedMenuItems = await res.json();
-                renderMenu();
-            }
-        } catch (e) { /* menu unavailable */ }
+            cachedMenuItems = await fetchMenuItems();
+            renderMenu();
+        } catch (e) { console.error('Failed to load menu items', e); }
     }
 
-    // Gallery page
     if (document.getElementById('gallery-grid')) {
         try {
-            const res = await fetch('/api/gallery');
-            if (res.ok) renderGallery(await res.json());
-        } catch (e) { /* gallery unavailable */ }
+            renderGallery(await fetchGallery());
+        } catch (e) { console.error('Failed to load gallery', e); }
     }
 
-    // About page sections
     if (document.getElementById('about-sections-container')) {
         try {
-            const res = await fetch('/api/about');
-            if (res.ok) renderAboutSections(await res.json());
-        } catch (e) { /* about unavailable */ }
+            renderAboutSections(await fetchAboutSections());
+        } catch (e) { console.error('Failed to load about sections', e); }
     }
 
-    // Menu category filter buttons
     document.querySelectorAll('.filter-btn').forEach(btn => {
         btn.addEventListener('click', e => {
             const filter = e.target.dataset.filter;
@@ -113,31 +193,23 @@ window.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    // Social icons (footer, contact, sidebar)
     try {
-        const res = await fetch('/api/social');
-        if (res.ok) {
-            const links = await res.json();
-            document.querySelectorAll('#footer-social, #contact-social, #social-sidebar').forEach(container => {
-                renderSocialIcons(links, container);
-            });
-        }
-    } catch (e) { /* social links unavailable */ }
+        const links = await fetchSocialLinks();
+        document.querySelectorAll('#footer-social, #contact-social, #social-sidebar').forEach(container => {
+            renderSocialIcons(links, container);
+        });
+    } catch (e) { console.error('Failed to load social links', e); }
 
-    // Dynamic nav pages
     try {
-        const res = await fetch('/api/pages');
-        if (res.ok) injectDynamicPages(await res.json());
-    } catch (e) { /* static pages unavailable */ }
+        injectDynamicPages(await fetchNavPages());
+    } catch (e) { console.error('Failed to load static pages', e); }
 
-    // Static page renderer (page.html)
     if (document.getElementById('static-page-container')) {
         const slug = new URLSearchParams(window.location.search).get('slug');
         if (slug) {
             try {
-                const res = await fetch('/api/pages/' + slug);
-                if (res.ok) {
-                    const page = await res.json();
+                const page = await fetchPageBySlug(slug);
+                if (page) {
                     const lang = localStorage.getItem('lang') || 'ro';
                     const title = page['title_' + lang] || page.title_ro;
                     const content = page['content_' + lang] || page.content_ro || '';
@@ -147,23 +219,26 @@ window.addEventListener('DOMContentLoaded', async () => {
                     document.getElementById('static-page-body').innerHTML = content + image;
                     document.getElementById('page-title').textContent = title + ' | Roll Story';
                 }
-            } catch (e) { /* page load failed */ }
+            } catch (e) { console.error('Failed to load static page', e); }
+            finally { dismissLoader(); }
         }
     }
 
-    // Promo popup
     try {
-        const res = await fetch('/api/promo');
-        if (res.ok) {
-            const promo = await res.json();
-            if (promo) initPromoPopup(promo);
-        }
-    } catch (e) { /* promo unavailable */ }
+        const promo = await fetchPromo();
+        if (promo) initPromoPopup(promo);
+    } catch (e) { console.error('Failed to load promo', e); }
+
+    if (document.querySelector('.reviews-section .marquee-track')) {
+        try {
+            const testimonials = await fetchTestimonials();
+            if (testimonials.length) renderTestimonials(testimonials);
+        } catch (e) { console.error('Failed to load testimonials', e); }
+    }
 
     dismissLoader();
 });
 
-// Re-render language-dependent content when the user switches language.
 window.addEventListener('languageChanged', () => {
     updateDynamicTranslations();
 
@@ -173,14 +248,9 @@ window.addEventListener('languageChanged', () => {
     }
 
     if (document.getElementById('about-sections-container')) {
-        fetch('/api/about')
-            .then(r => r.json())
-            .then(renderAboutSections)
-            .catch(() => {});
+        fetchAboutSections().then(renderAboutSections).catch(() => {});
     }
 });
-
-// --- Loader ---
 
 function applyLoaderSettings(config) {
     const loader = document.getElementById('global-loader');
@@ -207,8 +277,6 @@ function dismissLoader() {
     if (!loader) return;
     setTimeout(() => loader.classList.add('hidden'), 600);
 }
-
-// --- Settings ---
 
 function applySettingsToUI() {
     const phone = cachedSettings.phone || '+37361055561';
@@ -258,8 +326,6 @@ function applyHeroBackground() {
     }
 }
 
-// --- Dynamic nav pages ---
-
 function injectDynamicPages(pages) {
     if (!pages || !pages.length) return;
 
@@ -271,7 +337,7 @@ function injectDynamicPages(pages) {
 
     pages.forEach(page => {
         const a = document.createElement('a');
-        a.href = '/page.html?slug=' + page.slug;
+        a.href = '/page?slug=' + page.slug;
         a.textContent = page['title_' + lang] || page.title_ro;
         a.dataset.dynamicPage = page.slug;
 
@@ -280,9 +346,6 @@ function injectDynamicPages(pages) {
     });
 }
 
-// --- Product modal ---
-
-// Builds the product modal and gallery lightbox DOM once, reuses them after.
 function createModalContainers() {
     if (!document.getElementById('product-modal-overlay')) {
         const modalHtml = `
@@ -390,8 +453,6 @@ function closeProductModal() {
     document.body.style.overflow = '';
 }
 
-// --- Lightbox ---
-
 function openLightbox(src) {
     document.getElementById('lightbox-img').src = src;
     document.getElementById('lightbox-overlay').classList.add('active');
@@ -402,8 +463,6 @@ function closeLightbox() {
     document.getElementById('lightbox-overlay')?.classList.remove('active');
     document.body.style.overflow = '';
 }
-
-// --- Menu ---
 
 function renderMenu(filter = 'all') {
     const isFeatured = !!document.getElementById('featured-grid');
@@ -447,8 +506,6 @@ function renderMenu(filter = 'all') {
     });
 }
 
-// --- Gallery ---
-
 function renderGallery(items) {
     const grid = document.getElementById('gallery-grid');
     if (!grid) return;
@@ -473,8 +530,6 @@ function renderGallery(items) {
     initScrollAnimations();
 }
 
-// --- About ---
-
 function renderAboutSections(sections) {
     const container = document.getElementById('about-sections-container');
     if (!container) return;
@@ -497,8 +552,6 @@ function renderAboutSections(sections) {
 
     initScrollAnimations();
 }
-
-// --- Promo popup ---
 
 function initPromoPopup(promo) {
     if (promo.show_once && sessionStorage.getItem('promo_seen')) return;
@@ -540,7 +593,20 @@ function closePromo() {
     setTimeout(() => overlay.remove(), 500);
 }
 
-// --- Utilities ---
+function renderTestimonials(items) {
+    const track = document.querySelector('.reviews-section .marquee-track');
+    if (!track) return;
+
+    const renderSet = (entries) => entries.map(item => {
+        const rating = Math.max(1, Math.min(5, Number(item.rating) || 5));
+        const stars = '★★★★★'.slice(0, rating) + '☆☆☆☆☆'.slice(0, 5 - rating);
+        const content = item.content || '';
+        const author = item.author_name || 'Client';
+        return '<div class="review-card"><div class="review-stars">' + stars + '</div><p class="review-text">"' + content + '"</p><div class="review-author"><i class="ph-fill ph-user-circle"></i> ' + author + '</div></div>';
+    }).join('');
+
+    track.innerHTML = renderSet(items) + renderSet(items);
+}
 
 function initScrollAnimations() {
     const observer = new IntersectionObserver(entries => {
@@ -568,7 +634,6 @@ function toggleMobileNav() {
     document.getElementById('hamburger')?.classList.toggle('active');
 }
 
-// Close the mobile nav when a link inside it is tapped.
 document.addEventListener('click', e => {
     if (e.target.closest('.nav-links a:not(.lang-btn)')) {
         const nav = document.getElementById('nav-links');
