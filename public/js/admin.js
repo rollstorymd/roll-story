@@ -177,9 +177,7 @@ async function loadMenu() {
         const { data: items, error } = await supabaseClient
             .from('menu_items')
             .select('*')
-            .order('category', { ascending: true })
-            .order('sort_order', { ascending: true })
-            .order('id', { ascending: true });
+           .order('id', { ascending: true });
         if (error) throw error;
 
         const tb = document.getElementById('menu-table-body');
