@@ -284,7 +284,7 @@ async function saveMenuItem(e) {
                 ? await supabaseClient.from('menu_items').update(payload).eq('id', id)
                 : await supabaseClient.from('menu_items').insert([payload]);
             if (error) throw error;
-
+            document.getElementById('mi-image').value = '';
             closeMenuModal();
             await loadMenu();
         } catch (err) {
