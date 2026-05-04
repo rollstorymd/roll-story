@@ -238,6 +238,7 @@ async function editMenuItem(id) {
         document.getElementById('mi-ing-en').value      = item.ingredients_en || '';
         document.getElementById('mi-active').value      = item.active;
         document.getElementById('mi-sort').value        = item.sort_order || 0;
+        document.getElementById('mi-featured').value    = item.featured || 0;
         document.getElementById('modal-title').textContent = 'Editează: ' + (item.name_ro || '');
         openMenuModal(item);
     } catch (e) {
