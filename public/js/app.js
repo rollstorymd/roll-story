@@ -437,6 +437,14 @@ function openProductModal(id) {
         en: 'Hello! I would like to order: ' + title + ' (' + item.price + ' ' + currency + ') from Roll Story.'
     };
     document.getElementById('modal-wa-btn').href = 'https://wa.me/' + phoneDigits + '?text=' + encodeURIComponent(waMessages[lang] || waMessages.ro);
+    document.getElementById('modal-wa-btn').onclick = () => {
+        supabaseClient.from('analytics').insert([{
+            event: 'whatsapp_click',
+            item_id: item.id,
+            item_name: item.name_ro,
+            page: window.location.pathname
+        }]).then(() => {});
+    };
 
     const orderLabels = { ro: 'Comandă prin WhatsApp', ru: 'Заказать через WhatsApp', en: 'Order via WhatsApp' };
     document.getElementById('modal-order-text').textContent = orderLabels[lang] || orderLabels.ro;
@@ -444,8 +452,15 @@ function openProductModal(id) {
     const ingredientLabels = { ro: 'INGREDIENTE', ru: 'ИНГРЕДИЕНТЫ', en: 'INGREDIENTS' };
     document.getElementById('modal-ing-label').textContent = ingredientLabels[lang] || ingredientLabels.ro;
 
-    document.getElementById('product-modal-overlay').classList.add('active');
+     document.getElementById('product-modal-overlay').classList.add('active');
     document.body.style.overflow = 'hidden';
+
+    supabaseClient.from('analytics').insert([{
+        event: 'product_view',
+        item_id: item.id,
+        item_name: item.name_ro,
+        page: window.location.pathname
+    }]).then(() => {});
 }
 
 function closeProductModal() {
