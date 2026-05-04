@@ -1024,4 +1024,4 @@ async function reactivateTestimonial(id) {
         + '&nbsp;|&nbsp;'
         + 'Total click-uri WhatsApp: <strong>' + clicks.length + '</strong>'
     + '</div>';
-
+    }
