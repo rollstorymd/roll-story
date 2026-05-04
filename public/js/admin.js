@@ -270,7 +270,8 @@ async function saveMenuItem(e) {
             ingredients_ru:  document.getElementById('mi-ing-ru').value || null,
             ingredients_en:  document.getElementById('mi-ing-en').value || null,
             active:          parseInt(document.getElementById('mi-active').value, 10) || 0,
-            sort_order:      parseInt(document.getElementById('mi-sort').value, 10) || 0
+            sort_order:      parseInt(document.getElementById('mi-sort').value, 10) || 0,
+            featured:        parseInt(document.getElementById('mi-featured').value, 10) || 0
         };
 
         if (!payload.category) {
