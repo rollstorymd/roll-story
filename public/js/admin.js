@@ -198,7 +198,7 @@ async function loadMenu() {
                 const tr = document.createElement('tr');
                 const active = isActiveInt(item.active);
                 tr.style.opacity = active ? '1' : '0.55';
-                tr.innerHTML = '<td>' + item.id + '</td>'
+                tr.innerHTML = '<td>' + item.id + '<br><small style="color:#8fa896;font-size:10px">ord:' + item.sort_order + '</small></td>'
                     + '<td>' + (item.image_url ? '<img src="' + item.image_url + '" style="width:44px;height:44px;object-fit:cover;border-radius:6px">' : '—') + '</td>'
                     + '<td><strong>' + (item.name_ro || '') + '</strong></td>'
                     + '<td><span style="background:rgba(255,227,42,0.1);padding:3px 8px;border-radius:4px;font-size:12px;color:#FFE32A">' + item.category + '</span></td>'
