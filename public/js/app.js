@@ -474,7 +474,10 @@ function renderMenu(filter = 'all') {
 
     let items = [...cachedMenuItems];
     if (filter !== 'all') items = items.filter(item => item.category === filter);
-    if (isFeatured) items = items.slice(0, 6);
+    if (isFeatured) {
+        const featuredItems = items.filter(i => i.featured == 1);
+        items = featuredItems.length ? featuredItems : items.slice(0, 6);
+    }
 
     grid.innerHTML = '';
 
