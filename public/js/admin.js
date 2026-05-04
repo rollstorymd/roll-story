@@ -1010,18 +1010,9 @@ async function reactivateTestimonial(id) {
         '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #1a3d22"><span>' + name + '</span><strong style="color:#4CAF50">' + count + '</strong></div>'
     ).join('');
 
-    container.innerHTML =
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">'
-        + '<div><h4 style="color:#FFE32A;margin-bottom:12px">👁 Top Produse Vizualizate</h4>'
-        + viewsHtml
+    container.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">'
+        + '<div><h4 style="color:#FFE32A;margin-bottom:12px">👁 Top Produse Vizualizate</h4>' + viewsHtml + '</div>'
+        + '<div><h4 style="color:#4CAF50;margin-bottom:12px">💬 Top Click-uri WhatsApp</h4>' + clicksHtml + '</div>'
         + '</div>'
-        + '<div><h4 style="color:#4CAF50;margin-bottom:12px">💬 Top Click-uri WhatsApp</h4>'
-        + clicksHtml
-        + '</div>'
-    + '</div>'
-    + '<div style="margin-top:16px;color:#8fa896;font-size:13px">'
-        + 'Total vizualizări: <strong>' + views.length + '</strong>'
-        + '&nbsp;|&nbsp;'
-        + 'Total click-uri WhatsApp: <strong>' + clicks.length + '</strong>'
-    + '</div>';
-    }
+        + '<div style="margin-top:16px;color:#8fa896;font-size:13px">Total vizualizări: <strong>' + views.length + '</strong> &nbsp;|&nbsp; Total click-uri WhatsApp: <strong>' + clicks.length + '</strong></div>';
+}
