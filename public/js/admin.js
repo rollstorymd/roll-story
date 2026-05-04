@@ -184,20 +184,33 @@ async function loadMenu() {
 
         const tb = document.getElementById('menu-table-body');
         tb.innerHTML = '';
-        (items || []).forEach(item => {
+        const categories = ['shawarma', 'crepes', 'drinks', 'addons'];
+        const categoryNames = { shawarma: '🌯 Șaorma', crepes: '🥞 Crepe', drinks: '🥤 Băuturi', addons: '➕ Adaos' };
+
+        categories.forEach(cat => {
+            const catItems = (items || []).filter(i => i.category === cat);
+            if (!catItems.length) return;
+
             const tr = document.createElement('tr');
-            const active = isActiveInt(item.active);
-            tr.style.opacity = active ? '1' : '0.55';
-            tr.innerHTML = '<td>' + item.id + '</td>'
-                + '<td>' + (item.image_url ? '<img src="' + item.image_url + '" style="width:44px;height:44px;object-fit:cover;border-radius:6px">' : '—') + '</td>'
-                + '<td><strong>' + (item.name_ro || '') + '</strong></td>'
-                + '<td><span style="background:rgba(255,227,42,0.1);padding:3px 8px;border-radius:4px;font-size:12px;color:#FFE32A">' + item.category + '</span></td>'
-                + '<td><strong>' + item.price + ' MDL</strong></td>'
-                + '<td>' + (active ? '✅' : '❌') + '</td>'
-                + '<td><button class="btn-sm" onclick="editMenuItem(' + item.id + ')">Edit</button> '
-                + '<button class="btn-sm ' + (active ? 'btn-danger' : 'btn-secondary') + '" onclick="' + (active ? 'deleteMenuItem(' : 'reactivateMenuItem(') + item.id + ')">'
-                + (active ? 'Șterge' : 'Reactivează') + '</button></td>';
+            tr.innerHTML = '<td colspan="7" style="background:#1a3d22;color:#FFE32A;font-weight:bold;padding:10px 12px;font-size:14px">'
+                + (categoryNames[cat] || cat) + '</td>';
             tb.appendChild(tr);
+
+            catItems.forEach(item => {
+                const tr = document.createElement('tr');
+                const active = isActiveInt(item.active);
+                tr.style.opacity = active ? '1' : '0.55';
+                tr.innerHTML = '<td>' + item.id + '</td>'
+                    + '<td>' + (item.image_url ? '<img src="' + item.image_url + '" style="width:44px;height:44px;object-fit:cover;border-radius:6px">' : '—') + '</td>'
+                    + '<td><strong>' + (item.name_ro || '') + '</strong></td>'
+                    + '<td><span style="background:rgba(255,227,42,0.1);padding:3px 8px;border-radius:4px;font-size:12px;color:#FFE32A">' + item.category + '</span></td>'
+                    + '<td><strong>' + item.price + ' MDL</strong></td>'
+                    + '<td>' + (active ? '✅' : '❌') + '</td>'
+                    + '<td><button class="btn-sm" onclick="editMenuItem(' + item.id + ')">Edit</button> '
+                    + '<button class="btn-sm ' + (active ? 'btn-danger' : 'btn-secondary') + '" onclick="' + (active ? 'deleteMenuItem(' : 'reactivateMenuItem(') + item.id + ')">'
+                    + (active ? 'Șterge' : 'Reactivează') + '</button></td>';
+                tb.appendChild(tr);
+            });
         });
     } catch (e) {
         console.error(e);
