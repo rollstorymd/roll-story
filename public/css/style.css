@@ -1708,7 +1708,9 @@ main.container {
     .promo-card-body { padding: 24px; }
     .promo-card-body h2 { font-size: 22px; }
     .loader-text { font-size: 22px; letter-spacing: 4px; }
-    @media (max-width: 480px) {
+}
+
+@media (max-width: 480px) {
     .global-loader {
         padding: 0 20px;
         text-align: center;
