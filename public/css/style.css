@@ -1837,7 +1837,14 @@ main.container {
     border-radius: 50%;
     flex-shrink: 0;
 }
-
+.hero-features {
+    margin-top: 36px;
+    display: inline-flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: 480px;
+    text-align: left;
+}
 .hero-feature-item span:last-child {
     color: #fff;
     font-size: 15px;
