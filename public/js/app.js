@@ -291,6 +291,12 @@ function applySettingsToUI() {
     if (glovoBtn && cachedSettings.glovo_url) {
         glovoBtn.href = cachedSettings.glovo_url;
         glovoBtn.style.display = 'flex';
+    const f1 = document.getElementById('hero-feat-1');
+    const f2 = document.getElementById('hero-feat-2');
+    const f3 = document.getElementById('hero-feat-3');
+    if (f1 && cachedSettings.hero_feature_1) f1.textContent = cachedSettings.hero_feature_1;
+    if (f2 && cachedSettings.hero_feature_2) f2.textContent = cachedSettings.hero_feature_2;
+    if (f3 && cachedSettings.hero_feature_3) f3.textContent = cachedSettings.hero_feature_3;
     }
 }
 
