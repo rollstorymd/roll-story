@@ -91,6 +91,9 @@ async function loadSettings() {
         document.getElementById('set-hours-ro').value   = s.working_hours_ro || '';
         document.getElementById('set-hours-ru').value   = s.working_hours_ru || '';
         document.getElementById('set-hours-en').value   = s.working_hours_en || '';
+        document.getElementById('set-feat-1').value     = s.hero_feature_1 || '';
+        document.getElementById('set-feat-2').value     = s.hero_feature_2 || '';
+        document.getElementById('set-feat-3').value     = s.hero_feature_3 || '';
     } catch (e) {
         console.error(e);
     }
