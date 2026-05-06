@@ -1808,3 +1808,38 @@ main.container {
         transition-duration: 0.01ms !important;
     }
 }
+.hero-features {
+    margin-top: 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: 480px;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: left;
+}
+
+.hero-feature-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    background: rgba(0,0,0,0.45);
+    border: 1px solid rgba(255,227,42,0.15);
+    border-radius: 14px;
+    padding: 14px 18px;
+    backdrop-filter: blur(8px);
+}
+
+.hero-feature-icon {
+    font-size: 22px;
+    min-width: 28px;
+    text-align: center;
+    margin-top: 1px;
+}
+
+.hero-feature-item span:last-child {
+    color: #fff;
+    font-size: 15px;
+    line-height: 1.6;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.8);
+}
