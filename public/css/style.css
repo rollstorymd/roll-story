@@ -1812,7 +1812,7 @@ main.container {
     display: flex;
     align-items: center;
     gap: 16px;
-    background: rgba(0,0,0,0.5);
+    background: linear-gradient(135deg, rgba(255,227,42,0.08), rgba(255,227,42,0.03));
     border: 1px solid rgba(255,227,42,0.2);
     border-radius: 50px;
     padding: 14px 22px;
@@ -1821,7 +1821,7 @@ main.container {
 }
 
 .hero-feature-item:hover {
-    background: rgba(0,0,0,0.65);
+    background: linear-gradient(135deg, rgba(255,227,42,0.15), rgba(255,227,42,0.06));
     border-color: rgba(255,227,42,0.4);
     transform: translateX(6px);
 }
@@ -1833,7 +1833,7 @@ main.container {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255,227,42,0.12);
+    background: rgba(255,227,42,0.15);
     border-radius: 50%;
     flex-shrink: 0;
 }
