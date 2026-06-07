@@ -1,7 +1,7 @@
 const dictionary = {
     ro: {
         nav_menu:"Meniu",nav_about:"Despre Noi",nav_ingredients:"Ingrediente",nav_gallery:"Galerie",nav_contact:"Contact",
-        hero_badge:"PREMIUM STREET FOOD",hero_title:"100% Sănătos",hero_subtitle:"Descoperă gustul autentic al Șaormei premium. Ingrediente proaspete, gusturi unice, doar la Roll Story — Soroca.",hero_cta:"Comandă Acum",
+        hero_badge:"PREMIUM HEALTHY FAST FOOD",hero_title:"100% Sănătos",hero_subtitle:"Descoperă gustul autentic al Șaormei premium. Ingrediente proaspete, gusturi unice, doar la Roll Story — Soroca.",hero_cta:"Comandă Acum",
         home_featured:"Recomandările Noastre",home_why:"De Ce Roll Story?",home_reviews:"Părerea Clienților",
         feat_fresh:"Ingrediente Proaspete",feat_fresh_desc:"Toate produsele sunt pregătite zilnic din ingrediente naturale, fără conservanți.",
         feat_taste:"Gust Premium",feat_taste_desc:"Rețete unice, autentice, care îmbină tradiționalul cu modernul.",
@@ -41,7 +41,7 @@ const dictionary = {
     },
     en: {
         nav_menu:"Menu",nav_about:"About Us",nav_ingredients:"Ingredients",nav_gallery:"Gallery",nav_contact:"Contact",
-        hero_badge:"PREMIUM STREET FOOD",hero_title:"100% Healthy",hero_subtitle:"Discover the authentic taste of premium Shawarma. Fresh ingredients, unique flavors — only at Roll Story, Soroca.",hero_cta:"Order Now",
+        hero_badge:"PREMIUM HEALTHY FAST FOOD",hero_title:"100% Healthy",hero_subtitle:"Discover the authentic taste of premium Shawarma. Fresh ingredients, unique flavors — only at Roll Story, Soroca.",hero_cta:"Order Now",
         home_featured:"Our Recommendations",home_why:"Why Roll Story?",home_reviews:"Customer Reviews",
         feat_fresh:"Fresh Ingredients",feat_fresh_desc:"All products are prepared daily from natural ingredients, no preservatives.",
         feat_taste:"Premium Taste",feat_taste_desc:"Unique, authentic recipes that blend tradition with modernity.",
