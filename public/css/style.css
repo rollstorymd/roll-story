@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Oswald:wght@400;500;600;700&display=swap');
-
 :root {
     --color-bg-dark: #0f1f17;
     --color-bg-panel: #10251c;
@@ -318,11 +316,12 @@ main.container {
     animation: floatParticles 30s linear infinite;
     z-index: 1;
     opacity: 0.5;
+    will-change: transform; /* promovează pe layer GPU */
 }
 
 @keyframes floatParticles {
-    from { transform: translateY(0) rotate(0deg); }
-    to { transform: translateY(-100px) rotate(5deg); }
+    from { transform: translate3d(0, 0, 0) rotate(0deg); }
+    to   { transform: translate3d(0, -100px, 0) rotate(5deg); }
 }
 
 .hero-content {
