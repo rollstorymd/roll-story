@@ -1,672 +1,1076 @@
-let cachedMenuItems = [];
-let cachedSettings = {};
+let CURRENT_USER = null;
+const pendingActions = new Set();
 const supabaseClient = window.supabaseClient;
 
-const SOCIAL_ICONS = {
-    instagram: '<i class="ph-fill ph-instagram-logo"></i>',
-    facebook:  '<i class="ph-fill ph-facebook-logo"></i>',
-    telegram:  '<i class="ph-fill ph-telegram-logo"></i>',
-    whatsapp:  '<i class="ph-fill ph-whatsapp-logo"></i>',
-    phone:     '<i class="ph-fill ph-phone"></i>',
-    email:     '<i class="ph-fill ph-envelope"></i>',
-    viber:     '<i class="ph-fill ph-chat-circle-text"></i>',
-    tiktok:    '<i class="ph-fill ph-tiktok-logo"></i>',
-    youtube:   '<i class="ph-fill ph-youtube-logo"></i>'
-};
+(async function bootstrap() {
+    const session = await sbRequireAdmin();
+    if (!session) return;
 
-function getSocialUrl(type, value) {
-    if (!value) return '#';
-    switch (type) {
-        case 'instagram': return value.startsWith('http') ? value : 'https://instagram.com/' + value;
-        case 'facebook':  return value.startsWith('http') ? value : 'https://facebook.com/' + value;
-        case 'telegram':  return value.startsWith('http') ? value : 'https://t.me/' + value;
-        case 'whatsapp':  return 'https://wa.me/' + value.replace(/[^0-9]/g, '');
-        case 'phone':     return 'tel:' + value.replace(/[^0-9+]/g, '');
-        case 'email':     return 'mailto:' + value;
-        case 'viber':     return 'viber://chat?number=' + value.replace(/[^0-9]/g, '');
-        case 'tiktok':    return value.startsWith('http') ? value : 'https://tiktok.com/@' + value.replace('@', '');
-        case 'youtube':   return value.startsWith('http') ? value : 'https://youtube.com/' + value;
-        default:          return '#';
+    const { data: profile } = await supabaseClient
+        .from('admin_profiles')
+        .select('user_id')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
+    if (!profile) {
+        await supabaseClient.auth.signOut();
+        window.location.href = '/admin/login.html';
+        return;
+    }
+
+    CURRENT_USER = session.user;
+})();
+
+async function logout() {
+    await supabaseClient.auth.signOut();
+    window.location.href = '/admin/login.html';
+}
+
+function isActiveInt(value) {
+    return Number(value) === 1;
+}
+
+async function withPending(actionKey, task) {
+    if (pendingActions.has(actionKey)) return;
+    pendingActions.add(actionKey);
+    try {
+        return await task();
+    } finally {
+        pendingActions.delete(actionKey);
     }
 }
 
-function renderSocialIcons(links, container) {
-    if (!container || !links || !links.length) return;
-    container.innerHTML = '';
-
-    links.forEach(link => {
-        const a = document.createElement('a');
-        a.href = getSocialUrl(link.type, link.value);
-        a.className = 'social-icon brand-' + link.type;
-        a.target = (link.type === 'phone' || link.type === 'email') ? '_self' : '_blank';
-        a.rel = 'noopener';
-        a.title = link.type;
-        a.innerHTML = SOCIAL_ICONS[link.type] || '';
-        container.appendChild(a);
-    });
+function setButtonBusy(button, busy, busyText) {
+    if (!button) return;
+    if (busy) {
+        if (!button.dataset.originalText) button.dataset.originalText = button.textContent;
+        button.disabled = true;
+        if (busyText) button.textContent = busyText;
+    } else {
+        button.disabled = false;
+        if (button.dataset.originalText) button.textContent = button.dataset.originalText;
+    }
 }
 
-function isActiveValue(value) {
-    return value === true || value === 1 || value === '1';
-}
+window.addEventListener('DOMContentLoaded', () => {
+    ensureTestimonialsAdminUI();
+    loadSettings();
+    loadMenu();
+    loadGallery();
+    loadAboutSections();
+    loadHeroBgPreview();
+    loadSocial();
+    loadPromo();
+    loadLoader();
+    loadPages();
+    loadTestimonials();
 
-async function fetchSettings() {
+    document.getElementById('settings-form').addEventListener('submit', saveSettings);
+    document.getElementById('menu-item-form').addEventListener('submit', saveMenuItem);
+    document.getElementById('gallery-form').addEventListener('submit', uploadGallery);
+    document.getElementById('about-form').addEventListener('submit', saveAboutSection);
+    document.getElementById('hero-bg-form').addEventListener('submit', uploadHeroBg);
+    document.getElementById('promo-form').addEventListener('submit', savePromo);
+    document.getElementById('loader-form').addEventListener('submit', saveLoader);
+    document.getElementById('page-form').addEventListener('submit', savePage);
+});
+
+async function fetchSettingsMap() {
     const { data, error } = await supabaseClient.from('settings').select('key,value');
     if (error) throw error;
     return sbRowsToMap(data);
 }
 
-async function fetchLoaderConfig() {
-    const { data, error } = await supabaseClient.from('settings').select('key,value').like('key', 'loader_%');
-    if (error) throw error;
-    return sbRowsToMap(data);
-}
-
-async function fetchMenuItems() {
-    const { data, error } = await supabaseClient
-        .from('menu_items')
-        .select('*')
-        .order('sort_order', { ascending: true })
-        .order('id', { ascending: true });
-    if (error) throw error;
-    return (data || []).filter(item => isActiveValue(item.active));
-}
-
-async function fetchGallery() {
-    const { data, error } = await supabaseClient
-        .from('gallery')
-        .select('*')
-        .order('sort_order', { ascending: true })
-        .order('id', { ascending: true });
-    if (error) throw error;
-    return data || [];
-}
-
-async function fetchAboutSections() {
-    const { data, error } = await supabaseClient
-        .from('about_sections')
-        .select('*')
-        .order('order_index', { ascending: true })
-        .order('id', { ascending: true });
-    if (error) throw error;
-    return (data || []).filter(section => isActiveValue(section.active));
-}
-
-async function fetchSocialLinks() {
-    const { data, error } = await supabaseClient
-        .from('social_links')
-        .select('*')
-        .order('id', { ascending: true });
-    if (error) throw error;
-    return (data || []).filter(link => isActiveValue(link.active));
-}
-
-async function fetchNavPages() {
-    const { data, error } = await supabaseClient
-        .from('static_pages')
-        .select('id, slug, title_ro, title_ru, title_en, order_index, active')
-        .order('order_index', { ascending: true })
-        .order('id', { ascending: true });
-    if (error) throw error;
-    return (data || []).filter(page => isActiveValue(page.active));
-}
-
-async function fetchPageBySlug(slug) {
-    const s = String(slug || '').trim();
-    if (!s) return null;
-
-    const { data, error } = await supabaseClient
-        .from('static_pages')
-        .select('*')
-        .ilike('slug', s)
-        .order('id', { ascending: false })
-        .limit(1)
-        ;
-    if (error) throw error;
-    const row = Array.isArray(data) ? data[0] : data;
-    return row || null;
-}
-
-async function fetchPromo() {
-    const { data, error } = await supabaseClient
-        .from('promo_popup')
-        .select('*')
-        .limit(1)
-        .maybeSingle();
-    if (error) throw error;
-    return data && isActiveValue(data.active) ? data : null;
-}
-
-async function fetchTestimonials() {
-    const { data, error } = await supabaseClient
-        .from('testimonials')
-        .select('*')
-        .eq('active', 1)
-        .order('created_at', { ascending: false })
-        .order('id', { ascending: false });
-    if (error) throw error;
-    return data || [];
-}
-
-window.addEventListener('DOMContentLoaded', async () => {
-    initScrollAnimations();
-    initHeaderScroll();
-    createModalContainers();
-
+async function loadSettings() {
     try {
-        cachedSettings = await fetchSettings();
-        applySettingsToUI();
-        updateDynamicTranslations();
-        applyHeroBackground();
-    } catch (e) { console.error('Failed to load settings', e); }
-
-    try {
-        applyLoaderSettings(await fetchLoaderConfig());
-    } catch (e) { console.error('Failed to load loader settings', e); }
-
-    if (document.getElementById('menu-grid') || document.getElementById('featured-grid')) {
-        try {
-            cachedMenuItems = await fetchMenuItems();
-            renderMenu();
-        } catch (e) { console.error('Failed to load menu items', e); }
+        const s = await fetchSettingsMap();
+        document.getElementById('set-phone').value      = s.phone || '';
+        document.getElementById('set-wa-msg').value     = s.whatsapp_msg || '';
+        document.getElementById('set-glovo').value      = s.glovo_url || '';
+        document.getElementById('set-bolt').value       = s.bolt_url || '';
+        document.getElementById('set-hours-ro').value   = s.working_hours_ro || '';
+        document.getElementById('set-hours-ru').value   = s.working_hours_ru || '';
+        document.getElementById('set-hours-en').value   = s.working_hours_en || '';
+        document.getElementById('set-feat-1').value     = s.hero_feature_1 || '';
+        document.getElementById('set-feat-2').value     = s.hero_feature_2 || '';
+        document.getElementById('set-feat-3').value     = s.hero_feature_3 || '';
+    } catch (e) {
+        console.error(e);
     }
+}
 
-    if (document.getElementById('gallery-grid')) {
-        try {
-            renderGallery(await fetchGallery());
-        } catch (e) { console.error('Failed to load gallery', e); }
-    }
-
-    if (document.getElementById('about-sections-container')) {
-        try {
-            renderAboutSections(await fetchAboutSections());
-        } catch (e) { console.error('Failed to load about sections', e); }
-    }
-
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.addEventListener('click', e => {
-            const filter = e.target.dataset.filter;
-            if (!filter) return;
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            e.target.classList.add('active');
-            renderMenu(filter);
-        });
-    });
+async function saveSettings(e) {
+    e.preventDefault();
+    const data = {};
+    new FormData(e.target).forEach((v, k) => { data[k] = v; });
 
     try {
-        const links = await fetchSocialLinks();
-        document.querySelectorAll('#footer-social, #contact-social, #social-sidebar').forEach(container => {
-            renderSocialIcons(links, container);
-        });
-    } catch (e) { console.error('Failed to load social links', e); }
+        const rows = Object.entries(data).map(([key, value]) => ({ key, value: String(value ?? '') }));
+        const { error } = await supabaseClient.from('settings').upsert(rows, { onConflict: 'key' });
+        if (error) throw error;
+        alert('Salvat!');
+    } catch (err) {
+        console.error(err);
+        alert('Eroare!');
+    }
+}
 
+async function loadHeroBgPreview() {
     try {
-        injectDynamicPages(await fetchNavPages());
-    } catch (e) { console.error('Failed to load static pages', e); }
+        const s = await fetchSettingsMap();
+        const p = document.getElementById('hero-bg-preview');
+        const btn = document.getElementById('delete-hero-bg-btn');
 
-    if (document.getElementById('static-page-container')) {
-        const slug = new URLSearchParams(window.location.search).get('slug');
-        if (slug) {
-            try {
-                const page = await fetchPageBySlug(slug);
-                if (page) {
-                    const lang = localStorage.getItem('lang') || 'ro';
-                    const title = page['title_' + lang] || page.title_ro;
-                    const content = page['content_' + lang] || page.content_ro || '';
-                    const image = page.image_url ? '<img src="' + page.image_url + '" alt="">' : '';
-
-                    document.getElementById('static-page-title').textContent = title;
-                    document.getElementById('static-page-body').innerHTML = content + image;
-                    document.getElementById('page-title').textContent = title + ' | Roll Story';
-                }
-            } catch (e) { console.error('Failed to load static page', e); }
-            finally { dismissLoader(); }
+        if (s.hero_bg_url) {
+            p.innerHTML = s.hero_bg_type === 'video'
+                ? '<video src="' + s.hero_bg_url + '" style="max-width:300px;border-radius:8px" controls muted></video>'
+                : '<img src="' + s.hero_bg_url + '" style="max-width:300px;border-radius:8px">';
+            if (btn) btn.style.display = 'inline-block';
+        } else {
+            p.innerHTML = '<p style="color:#8fa896">Niciun fundal setat.</p>';
+            if (btn) btn.style.display = 'none';
         }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function uploadHeroBg(e) {
+    e.preventDefault();
+    const f = document.getElementById('hero-bg-file').files[0];
+    if (!f) return;
+
+    try {
+        // Șterge vechiul fundal din Storage
+        const s = await fetchSettingsMap();
+        if (s.hero_bg_url) await sbDeleteImage(s.hero_bg_url);
+
+        const url = await sbUploadImage(f, 'hero-bg');
+        const type = sbInferMediaType(f);
+
+        const { error } = await supabaseClient.from('settings').upsert([
+            { key: 'hero_bg_url', value: url },
+            { key: 'hero_bg_type', value: type }
+        ], { onConflict: 'key' });
+        if (error) throw error;
+
+        alert('Actualizat!');
+        document.getElementById('hero-bg-file').value = '';
+        loadHeroBgPreview();
+    } catch (err) {
+        console.error(err);
+        alert('Eroare!');
+    }
+}
+
+async function deleteHeroBg() {
+    if (!confirm('Ștergi fundalul?')) return;
+    try {
+        // Șterge fișierul din Storage
+        const s = await fetchSettingsMap();
+        if (s.hero_bg_url) await sbDeleteImage(s.hero_bg_url);
+
+        const { error } = await supabaseClient.from('settings').upsert([
+            { key: 'hero_bg_url', value: '' },
+            { key: 'hero_bg_type', value: '' }
+        ], { onConflict: 'key' });
+        if (error) throw error;
+        alert('Șters!');
+        loadHeroBgPreview();
+    } catch (err) {
+        console.error(err);
+        alert('Eroare!');
+    }
+}
+
+async function loadMenu() {
+    try {
+        const { data: items, error } = await supabaseClient
+            .from('menu_items')
+            .select('*')
+            .order('id', { ascending: true });
+        if (error) throw error;
+
+        const tb = document.getElementById('menu-table-body');
+        tb.innerHTML = '';
+        const categories = ['shawarma', 'crepes', 'drinks', 'addons'];
+        const categoryNames = { shawarma: '🌯 Șaorma', crepes: '🥞 Crepe', drinks: '🥤 Băuturi', addons: '➕ Adaos' };
+
+        categories.forEach(cat => {
+            const catItems = (items || []).filter(i => i.category === cat);
+            if (!catItems.length) return;
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = '<td colspan="7" style="background:#1a3d22;color:#FFE32A;font-weight:bold;padding:10px 12px;font-size:14px">'
+                + (categoryNames[cat] || cat) + '</td>';
+            tb.appendChild(tr);
+
+            catItems.forEach(item => {
+                const tr = document.createElement('tr');
+                const active = isActiveInt(item.active);
+                tr.style.opacity = active ? '1' : '0.55';
+                tr.innerHTML = '<td>' + item.sort_order + '</td>'
+                    + '<td>' + (item.image_url ? '<img src="' + item.image_url + '" style="width:44px;height:44px;object-fit:cover;border-radius:6px">' : '—') + '</td>'
+                    + '<td><strong>' + (item.name_ro || '') + '</strong></td>'
+                    + '<td><span style="background:rgba(255,227,42,0.1);padding:3px 8px;border-radius:4px;font-size:12px;color:#FFE32A">' + item.category + '</span></td>'
+                    + '<td><strong>' + item.price + ' MDL</strong></td>'
+                    + '<td>' + (active ? '✅' : '❌') + '</td>'
+                    + '<td><button class="btn-sm" onclick="editMenuItem(' + item.id + ')">Edit</button> '
+                    + '<button class="btn-sm ' + (active ? 'btn-danger' : 'btn-secondary') + '" onclick="' + (active ? 'deleteMenuItem(' : 'reactivateMenuItem(') + item.id + ')">'
+                    + (active ? 'Șterge' : 'Reactivează') + '</button></td>';
+                tb.appendChild(tr);
+            });
+        });
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function openMenuModal(item = null) {
+    document.getElementById('menu-editor').style.display = 'block';
+    document.getElementById('modal-overlay').style.display = 'block';
+    if (!item) {
+        document.getElementById('modal-title').textContent = 'Adaugă Produs';
+        document.getElementById('menu-item-form').reset();
+        document.getElementById('mi-id').value = '';
+    }
+}
+
+function closeMenuModal() {
+    document.getElementById('menu-editor').style.display = 'none';
+    document.getElementById('modal-overlay').style.display = 'none';
+}
+
+async function editMenuItem(id) {
+    try {
+        const { data: item, error } = await supabaseClient.from('menu_items').select('*').eq('id', id).maybeSingle();
+        if (error || !item) throw error || new Error('not found');
+
+        document.getElementById('mi-id').value          = item.id;
+        document.getElementById('mi-cat').value         = item.category;
+        document.getElementById('mi-price').value       = item.price;
+        document.getElementById('mi-name-ro').value     = item.name_ro || '';
+        document.getElementById('mi-name-ru').value     = item.name_ru || '';
+        document.getElementById('mi-name-en').value     = item.name_en || '';
+        document.getElementById('mi-desc-ro').value     = item.desc_ro || '';
+        document.getElementById('mi-desc-ru').value     = item.desc_ru || '';
+        document.getElementById('mi-desc-en').value     = item.desc_en || '';
+        document.getElementById('mi-ing-ro').value      = item.ingredients_ro || '';
+        document.getElementById('mi-ing-ru').value      = item.ingredients_ru || '';
+        document.getElementById('mi-ing-en').value      = item.ingredients_en || '';
+        document.getElementById('mi-active').value      = item.active;
+        document.getElementById('mi-sort').value        = item.sort_order || 0;
+        document.getElementById('mi-featured').value    = item.featured || 0;
+        document.getElementById('modal-title').textContent = 'Editează: ' + (item.name_ro || '');
+        openMenuModal(item);
+    } catch (e) {
+        console.error(e);
+        alert('Eroare!');
+    }
+}
+
+async function saveMenuItem(e) {
+    e.preventDefault();
+    const submitButton = e.submitter || e.target.querySelector('button[type="submit"]');
+    const id = document.getElementById('mi-id').value;
+    const actionKey = 'menu-save:' + (id || 'new');
+
+    await withPending(actionKey, async () => {
+        setButtonBusy(submitButton, true, 'Se salvează...');
+        const file = document.getElementById('mi-image').files[0];
+
+        const payload = {
+            category:        document.getElementById('mi-cat').value,
+            price:           parseFloat(document.getElementById('mi-price').value),
+            name_ro:         document.getElementById('mi-name-ro').value,
+            name_ru:         document.getElementById('mi-name-ru').value,
+            name_en:         document.getElementById('mi-name-en').value,
+            desc_ro:         document.getElementById('mi-desc-ro').value || null,
+            desc_ru:         document.getElementById('mi-desc-ru').value || null,
+            desc_en:         document.getElementById('mi-desc-en').value || null,
+            ingredients_ro:  document.getElementById('mi-ing-ro').value || null,
+            ingredients_ru:  document.getElementById('mi-ing-ru').value || null,
+            ingredients_en:  document.getElementById('mi-ing-en').value || null,
+            active:          parseInt(document.getElementById('mi-active').value, 10) || 0,
+            sort_order:      parseInt(document.getElementById('mi-sort').value, 10) || 0,
+            featured:        parseInt(document.getElementById('mi-featured').value, 10) || 0
+        };
+
+        if (!payload.category) {
+            alert('Categoria este obligatorie.');
+            return;
+        }
+
+        try {
+            if (file) {
+                // Șterge imaginea veche din Storage dacă e un update
+                if (id) {
+                    const { data: existing } = await supabaseClient.from('menu_items').select('image_url').eq('id', id).maybeSingle();
+                    if (existing?.image_url) await sbDeleteImage(existing.image_url);
+                }
+                payload.image_url = await sbUploadImage(file, payload.name_ro);
+            }
+
+            const { error } = id
+                ? await supabaseClient.from('menu_items').update(payload).eq('id', id)
+                : await supabaseClient.from('menu_items').insert([payload]);
+            if (error) throw error;
+            document.getElementById('mi-image').value = '';
+            closeMenuModal();
+            await loadMenu();
+        } catch (err) {
+            console.error(err);
+            alert('Eroare!');
+        } finally {
+            setButtonBusy(submitButton, false);
+        }
+    });
+}
+
+async function deleteMenuItem(id) {
+    if (!confirm('Ștergi acest produs?')) return;
+    await withPending('menu-delete:' + id, async () => {
+        try {
+            // Șterge imaginea din Storage
+            const { data: item } = await supabaseClient.from('menu_items').select('image_url').eq('id', id).maybeSingle();
+            if (item?.image_url) await sbDeleteImage(item.image_url);
+
+            const { error } = await supabaseClient.from('menu_items').update({ active: 0, image_url: null }).eq('id', id);
+            if (error) throw error;
+            await loadMenu();
+        } catch (err) {
+            console.error(err);
+            alert('Eroare!');
+        }
+    });
+}
+
+async function reactivateMenuItem(id) {
+    await withPending('menu-reactivate:' + id, async () => {
+        try {
+            const { error } = await supabaseClient.from('menu_items').update({ active: 1 }).eq('id', id);
+            if (error) throw error;
+            await loadMenu();
+        } catch (err) {
+            console.error(err);
+            alert('Eroare!');
+        }
+    });
+}
+
+async function loadGallery() {
+    try {
+        const { data: items, error } = await supabaseClient
+            .from('gallery')
+            .select('*')
+            .order('sort_order', { ascending: true })
+            .order('id', { ascending: true });
+        if (error) throw error;
+
+        const g = document.getElementById('gallery-manage-grid');
+        g.innerHTML = '';
+        (items || []).forEach(item => {
+            const d = document.createElement('div');
+            d.style.cssText = 'position:relative';
+            d.innerHTML = '<img src="' + item.image_url + '" style="width:120px;height:90px;object-fit:cover;border-radius:8px;border:1px solid #1a3d22">'
+                + '<button class="btn-sm btn-danger" style="position:absolute;top:2px;right:2px;padding:2px 6px;font-size:10px" onclick="deleteGalleryItem(' + item.id + ', \'' + (item.image_url || '') + '\')">✕</button>';
+            g.appendChild(d);
+        });
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function uploadGallery(e) {
+    e.preventDefault();
+    const submitButton = e.submitter || e.target.querySelector('button[type="submit"]');
+    await withPending('gallery-upload', async () => {
+        setButtonBusy(submitButton, true, 'Se încarcă...');
+        const file = document.getElementById('gal-file').files[0];
+        if (!file) return;
+
+        try {
+            const type = document.getElementById('gal-type').value || 'interior';
+            const url = await sbUploadImage(file, 'gallery-' + type);
+            const { error } = await supabaseClient.from('gallery').insert([{
+                image_url: url,
+                type: type,
+                sort_order: 0
+            }]);
+            if (error) throw error;
+
+            document.getElementById('gallery-form').reset();
+            await loadGallery();
+        } catch (err) {
+            console.error(err);
+            alert('Eroare!');
+        } finally {
+            setButtonBusy(submitButton, false);
+        }
+    });
+}
+
+async function deleteGalleryItem(id, imageUrl) {
+    if (!confirm('Ștergi?')) return;
+    try {
+        // Șterge imaginea din Storage
+        if (imageUrl) await sbDeleteImage(imageUrl);
+
+        const { error } = await supabaseClient.from('gallery').delete().eq('id', id);
+        if (error) throw error;
+        loadGallery();
+    } catch (err) {
+        console.error(err);
+        alert('Eroare!');
+    }
+}
+
+async function loadAboutSections() {
+    try {
+        const { data: secs, error } = await supabaseClient
+            .from('about_sections')
+            .select('*')
+            .order('order_index', { ascending: true })
+            .order('id', { ascending: true });
+        if (error) throw error;
+
+        const c = document.getElementById('about-sections-admin');
+        c.innerHTML = '';
+        (secs || []).forEach(sec => {
+            const d = document.createElement('div');
+            d.className = 'page-item';
+            d.innerHTML = (sec.image_url
+                    ? '<img src="' + sec.image_url + '" style="width:50px;height:50px;object-fit:cover;border-radius:6px">'
+                    : '<div style="width:50px;height:50px;background:#1a3d22;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#8fa896;font-size:20px">📄</div>')
+                + '<div class="page-info"><strong>' + (sec.title_ro || '—') + '</strong><small>Ord: ' + sec.order_index + ' | ' + (sec.active ? '✅' : '❌') + '</small></div>'
+                + '<button class="btn-sm" onclick="editAboutSection(' + sec.id + ')">Edit</button> '
+                + '<button class="btn-sm btn-danger" onclick="deleteAboutSection(' + sec.id + ', \'' + (sec.image_url || '') + '\')">Șterge</button>';
+            c.appendChild(d);
+        });
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function openAboutModal(sec = null) {
+    document.getElementById('about-editor').style.display = 'block';
+    document.getElementById('about-modal-overlay').style.display = 'block';
+    if (!sec) {
+        document.getElementById('about-modal-title').textContent = 'Adaugă Secțiune';
+        document.getElementById('about-form').reset();
+        document.getElementById('ab-id').value = '';
+    }
+}
+
+function closeAboutModal() {
+    document.getElementById('about-editor').style.display = 'none';
+    document.getElementById('about-modal-overlay').style.display = 'none';
+}
+
+async function editAboutSection(id) {
+    try {
+        const { data: sec, error } = await supabaseClient.from('about_sections').select('*').eq('id', id).maybeSingle();
+        if (error || !sec) throw error || new Error('not found');
+
+        document.getElementById('ab-id').value        = sec.id;
+        document.getElementById('ab-title-ro').value  = sec.title_ro || '';
+        document.getElementById('ab-title-ru').value  = sec.title_ru || '';
+        document.getElementById('ab-title-en').value  = sec.title_en || '';
+        document.getElementById('ab-text-ro').value   = sec.text_ro || '';
+        document.getElementById('ab-text-ru').value   = sec.text_ru || '';
+        document.getElementById('ab-text-en').value   = sec.text_en || '';
+        document.getElementById('ab-order').value     = sec.order_index || 0;
+        document.getElementById('ab-active').value    = sec.active;
+        document.getElementById('about-modal-title').textContent = 'Editează: ' + (sec.title_ro || '');
+        openAboutModal(sec);
+    } catch (e) {
+        console.error(e);
+        alert('Eroare!');
+    }
+}
+
+async function saveAboutSection(e) {
+    e.preventDefault();
+    const submitButton = e.submitter || e.target.querySelector('button[type="submit"]');
+    const id = document.getElementById('ab-id').value;
+    await withPending('about-save:' + (id || 'new'), async () => {
+        setButtonBusy(submitButton, true, 'Se salvează...');
+        const file = document.getElementById('ab-image').files[0];
+
+        const payload = {
+            title_ro:    document.getElementById('ab-title-ro').value,
+            title_ru:    document.getElementById('ab-title-ru').value,
+            title_en:    document.getElementById('ab-title-en').value,
+            text_ro:     document.getElementById('ab-text-ro').value,
+            text_ru:     document.getElementById('ab-text-ru').value,
+            text_en:     document.getElementById('ab-text-en').value,
+            order_index: parseInt(document.getElementById('ab-order').value, 10) || 0,
+            active:      parseInt(document.getElementById('ab-active').value, 10) || 0
+        };
+
+        try {
+            if (file) {
+                // Șterge imaginea veche din Storage dacă e un update
+                if (id) {
+                    const { data: existing } = await supabaseClient.from('about_sections').select('image_url').eq('id', id).maybeSingle();
+                    if (existing?.image_url) await sbDeleteImage(existing.image_url);
+                }
+                payload.image_url = await sbUploadImage(file, payload.title_ro);
+            }
+
+            const { error } = id
+                ? await supabaseClient.from('about_sections').update(payload).eq('id', id)
+                : await supabaseClient.from('about_sections').insert([payload]);
+            if (error) throw error;
+
+            closeAboutModal();
+            await loadAboutSections();
+        } catch (err) {
+            console.error(err);
+            alert('Eroare!');
+        } finally {
+            setButtonBusy(submitButton, false);
+        }
+    });
+}
+
+async function deleteAboutSection(id, imageUrl) {
+    if (!confirm('Ștergi?')) return;
+    try {
+        // Șterge imaginea din Storage
+        if (imageUrl) await sbDeleteImage(imageUrl);
+
+        const { error } = await supabaseClient.from('about_sections').delete().eq('id', id);
+        if (error) throw error;
+        loadAboutSections();
+    } catch (err) {
+        console.error(err);
+        alert('Eroare!');
+    }
+}
+
+async function loadSocial() {
+    try {
+        const { data: links, error } = await supabaseClient
+            .from('social_links')
+            .select('*')
+            .order('id', { ascending: true });
+        if (error) throw error;
+
+        const c = document.getElementById('social-admin-list');
+        c.innerHTML = '';
+        (links || []).forEach(l => {
+            const d = document.createElement('div');
+            d.className = 'social-admin-row';
+            d.innerHTML = '<span class="social-type">' + l.type + '</span>'
+                + '<input type="text" data-type="' + l.type + '" value="' + (l.value || '') + '" placeholder="URL / numar">'
+                + '<label class="toggle-switch"><input type="checkbox" data-social-active="' + l.type + '" ' + (l.active ? 'checked' : '') + '><span class="toggle-slider"></span></label>';
+            c.appendChild(d);
+        });
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function saveSocial() {
+    const rows = document.querySelectorAll('.social-admin-row');
+    const links = [];
+    rows.forEach(r => {
+        const type = r.querySelector('[data-type]').dataset.type;
+        const value = r.querySelector('[data-type]').value;
+        const active = r.querySelector('[data-social-active]').checked ? 1 : 0;
+        links.push({ type, value, active });
+    });
+
+    try {
+        const { error } = await supabaseClient.from('social_links').upsert(links, { onConflict: 'type' });
+        if (error) throw error;
+        alert('Salvat!');
+    } catch (err) {
+        console.error(err);
+        alert('Eroare!');
+    }
+}
+
+async function loadPromo() {
+    try {
+        const { data: p, error } = await supabaseClient
+            .from('promo_popup')
+            .select('*')
+            .order('id', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+        if (error) throw error;
+        if (!p) return;
+
+        document.getElementById('promo-active').checked   = !!p.active;
+        document.getElementById('promo-title-ro').value   = p.title_ro || '';
+        document.getElementById('promo-title-ru').value   = p.title_ru || '';
+        document.getElementById('promo-title-en').value   = p.title_en || '';
+        document.getElementById('promo-text-ro').value    = p.text_ro || '';
+        document.getElementById('promo-text-ru').value    = p.text_ru || '';
+        document.getElementById('promo-text-en').value    = p.text_en || '';
+        document.getElementById('promo-delay').value      = p.delay_seconds || 3;
+        document.getElementById('promo-btn-url').value    = p.button_url || '';
+        document.getElementById('promo-btn-ro').value     = p.button_text_ro || '';
+        document.getElementById('promo-btn-ru').value     = p.button_text_ru || '';
+        document.getElementById('promo-btn-en').value     = p.button_text_en || '';
+        document.getElementById('promo-once').checked     = !!p.show_once;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function savePromo(e) {
+    e.preventDefault();
+    const submitButton = e.submitter || e.target.querySelector('button[type="submit"]');
+    await withPending('promo-save', async () => {
+        setButtonBusy(submitButton, true, 'Se salvează...');
+        const file = document.getElementById('promo-image').files[0];
+
+        const payload = {
+            active:          document.getElementById('promo-active').checked ? 1 : 0,
+            title_ro:        document.getElementById('promo-title-ro').value,
+            title_ru:        document.getElementById('promo-title-ru').value,
+            title_en:        document.getElementById('promo-title-en').value,
+            text_ro:         document.getElementById('promo-text-ro').value,
+            text_ru:         document.getElementById('promo-text-ru').value,
+            text_en:         document.getElementById('promo-text-en').value,
+            delay_seconds:   parseInt(document.getElementById('promo-delay').value, 10) || 3,
+            button_url:      document.getElementById('promo-btn-url').value || '',
+            button_text_ro:  document.getElementById('promo-btn-ro').value || 'Comandă',
+            button_text_ru:  document.getElementById('promo-btn-ru').value || 'Заказать',
+            button_text_en:  document.getElementById('promo-btn-en').value || 'Order Now',
+            show_once:       document.getElementById('promo-once').checked ? 1 : 0
+        };
+
+        try {
+            if (file) {
+                // Șterge imaginea veche din Storage
+                const { data: existing } = await supabaseClient.from('promo_popup').select('id, image_url').limit(1).maybeSingle();
+                if (existing?.image_url) await sbDeleteImage(existing.image_url);
+                payload.image_url = await sbUploadImage(file, 'promo');
+
+                const { error } = existing
+                    ? await supabaseClient.from('promo_popup').update(payload).eq('id', existing.id)
+                    : await supabaseClient.from('promo_popup').insert([payload]);
+                if (error) throw error;
+            } else {
+                const { data: existing } = await supabaseClient.from('promo_popup').select('id').limit(1).maybeSingle();
+                const { error } = existing
+                    ? await supabaseClient.from('promo_popup').update(payload).eq('id', existing.id)
+                    : await supabaseClient.from('promo_popup').insert([payload]);
+                if (error) throw error;
+            }
+
+            alert('Salvat!');
+        } catch (err) {
+            console.error(err);
+            alert('Eroare!');
+        } finally {
+            setButtonBusy(submitButton, false);
+        }
+    });
+}
+
+async function loadLoader() {
+    try {
+        const { data, error } = await supabaseClient.from('settings').select('key,value').like('key', 'loader_%');
+        if (error) throw error;
+        const d = sbRowsToMap(data);
+        document.getElementById('loader-enabled').checked     = d.loader_enabled !== '0';
+        document.getElementById('loader-text-input').value    = d.loader_text || 'Roll Story';
+        document.getElementById('loader-color-input').value   = d.loader_color || 'yellow';
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function saveLoader(e) {
+    e.preventDefault();
+    try {
+        const rows = [
+            { key: 'loader_enabled', value: document.getElementById('loader-enabled').checked ? '1' : '0' },
+            { key: 'loader_text',    value: document.getElementById('loader-text-input').value },
+            { key: 'loader_color',   value: document.getElementById('loader-color-input').value }
+        ];
+        const { error } = await supabaseClient.from('settings').upsert(rows, { onConflict: 'key' });
+        if (error) throw error;
+        alert('Salvat!');
+    } catch (err) {
+        console.error(err);
+        alert('Eroare!');
+    }
+}
+
+async function loadPages() {
+    try {
+        const { data: pages, error } = await supabaseClient
+            .from('static_pages')
+            .select('*')
+            .order('order_index', { ascending: true })
+            .order('id', { ascending: true });
+        if (error) throw error;
+
+        const c = document.getElementById('pages-admin-list');
+        c.innerHTML = '';
+        (pages || []).forEach(pg => {
+            const d = document.createElement('div');
+            d.className = 'page-item';
+            d.innerHTML = '<div class="page-info"><strong>' + (pg.title_ro || '') + '</strong><small>/page.html?slug=' + pg.slug + ' | Ord: ' + pg.order_index + ' | ' + (pg.active ? '✅' : '❌') + '</small></div>'
+                + '<button class="btn-sm" onclick="editPage(' + pg.id + ')">Edit</button> '
+                + '<button class="btn-sm btn-danger" onclick="deletePage(' + pg.id + ', \'' + (pg.image_url || '') + '\')">Șterge</button>';
+            c.appendChild(d);
+        });
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function openPageModal(isEdit = false) {
+    document.getElementById('page-editor').style.display = 'block';
+    document.getElementById('page-modal-overlay').style.display = 'block';
+    if (!isEdit) {
+        document.getElementById('page-modal-title').textContent = 'Adaugă Pagină';
+        document.getElementById('page-form').reset();
+        document.getElementById('pg-id').value = '';
+    }
+}
+
+function closePageModal() {
+    document.getElementById('page-editor').style.display = 'none';
+    document.getElementById('page-modal-overlay').style.display = 'none';
+}
+
+async function editPage(id) {
+    try {
+        const { data: pg, error } = await supabaseClient.from('static_pages').select('*').eq('id', id).maybeSingle();
+        if (error || !pg) throw error || new Error('not found');
+
+        openPageModal(true);
+        document.getElementById('pg-id').value         = pg.id;
+        document.getElementById('pg-slug').value       = pg.slug;
+        document.getElementById('pg-order').value      = pg.order_index || 0;
+        document.getElementById('pg-title-ro').value   = pg.title_ro || '';
+        document.getElementById('pg-title-ru').value   = pg.title_ru || '';
+        document.getElementById('pg-title-en').value   = pg.title_en || '';
+        document.getElementById('pg-content-ro').value = pg.content_ro || '';
+        document.getElementById('pg-content-ru').value = pg.content_ru || '';
+        document.getElementById('pg-content-en').value = pg.content_en || '';
+        document.getElementById('pg-active').value     = pg.active;
+        document.getElementById('pg-image').value      = '';
+        document.getElementById('page-modal-title').textContent = 'Editează: ' + (pg.title_ro || '');
+    } catch (e) {
+        console.error(e);
+        alert('Eroare!');
+    }
+}
+
+async function savePage(e) {
+    e.preventDefault();
+    const submitButton = e.submitter || e.target.querySelector('button[type="submit"]');
+    const id = document.getElementById('pg-id').value;
+    await withPending('page-save:' + (id || 'new'), async () => {
+        setButtonBusy(submitButton, true, 'Se salvează...');
+        const file = document.getElementById('pg-image').files[0];
+
+        const payload = {
+            slug:        document.getElementById('pg-slug').value,
+            order_index: parseInt(document.getElementById('pg-order').value, 10) || 0,
+            title_ro:    document.getElementById('pg-title-ro').value,
+            title_ru:    document.getElementById('pg-title-ru').value,
+            title_en:    document.getElementById('pg-title-en').value,
+            content_ro:  document.getElementById('pg-content-ro').value || '',
+            content_ru:  document.getElementById('pg-content-ru').value || '',
+            content_en:  document.getElementById('pg-content-en').value || '',
+            active:      parseInt(document.getElementById('pg-active').value, 10) || 0
+        };
+
+        try {
+            if (file) {
+                // Șterge imaginea veche din Storage dacă e un update
+                if (id) {
+                    const { data: existing } = await supabaseClient.from('static_pages').select('image_url').eq('id', id).maybeSingle();
+                    if (existing?.image_url) await sbDeleteImage(existing.image_url);
+                }
+                payload.image_url = await sbUploadImage(file, payload.title_ro);
+            }
+
+            const { error } = id
+                ? await supabaseClient.from('static_pages').update(payload).eq('id', id)
+                : await supabaseClient.from('static_pages').insert([payload]);
+
+            if (error) {
+                if (error.code === '23505') {
+                    alert('Slug-ul există deja.');
+                    return;
+                }
+                throw error;
+            }
+
+            closePageModal();
+            await loadPages();
+        } catch (err) {
+            console.error(err);
+            alert('Eroare!');
+        } finally {
+            setButtonBusy(submitButton, false);
+        }
+    });
+}
+
+async function deletePage(id, imageUrl) {
+    if (!confirm('Ștergi pagina?')) return;
+    try {
+        // Șterge imaginea din Storage
+        if (imageUrl) await sbDeleteImage(imageUrl);
+
+        const { error } = await supabaseClient.from('static_pages').delete().eq('id', id);
+        if (error) throw error;
+        loadPages();
+    } catch (err) {
+        console.error(err);
+        alert('Eroare!');
+    }
+}
+
+async function changePassword(e) {
+    e.preventDefault();
+    const current = document.getElementById('cp-current').value;
+    const newPwd  = document.getElementById('cp-new').value;
+    const confirmPwd = document.getElementById('cp-confirm').value;
+    const msg = document.getElementById('cp-msg');
+
+    msg.style.display = 'none';
+
+    if (newPwd !== confirmPwd) {
+        msg.textContent = 'Parolele noi nu coincid.';
+        msg.style.color = '#ff4d4d';
+        msg.style.display = 'block';
+        return;
     }
 
     try {
-        const promo = await fetchPromo();
-        if (promo) initPromoPopup(promo);
-    } catch (e) { console.error('Failed to load promo', e); }
+        const { data: userData } = await supabaseClient.auth.getUser();
+        const email = userData?.user?.email;
+        if (!email) throw new Error('No session');
 
-    if (document.querySelector('.reviews-section .marquee-track')) {
+        const { error: signInErr } = await supabaseClient.auth.signInWithPassword({ email, password: current });
+        if (signInErr) {
+            msg.textContent = 'Parola curentă este incorectă.';
+            msg.style.color = '#ff4d4d';
+            msg.style.display = 'block';
+            return;
+        }
+
+        const { error: updateErr } = await supabaseClient.auth.updateUser({ password: newPwd });
+        if (updateErr) throw updateErr;
+
+        msg.textContent = 'Parola a fost schimbata cu succes.';
+        msg.style.color = '#4CAF50';
+        msg.style.display = 'block';
+        document.getElementById('change-password-form').reset();
+    } catch (err) {
+        console.error(err);
+        msg.textContent = 'Eroare la schimbarea parolei.';
+        msg.style.color = '#ff4d4d';
+        msg.style.display = 'block';
+    }
+}
+
+function ensureTestimonialsAdminUI() {
+    if (document.getElementById('testimonials-admin-list')) return;
+    const adminContainer = document.querySelector('.admin-container');
+    if (!adminContainer) return;
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = ''
+        + '<h2><i class="ph ph-chat-circle-text"></i> Customer Reviews</h2>'
+        + '<button onclick="openTestimonialModal()" style="margin-bottom:15px"><i class="ph ph-plus"></i> Adaugă Review</button>'
+        + '<div id="testimonials-admin-list" class="pages-list"></div>';
+    adminContainer.appendChild(card);
+
+    const overlay = document.createElement('div');
+    overlay.id = 'testimonial-modal-overlay';
+    overlay.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999';
+    overlay.onclick = closeTestimonialModal;
+    document.body.appendChild(overlay);
+
+    const modal = document.createElement('div');
+    modal.id = 'testimonial-editor';
+    modal.className = 'card';
+    modal.style.cssText = 'display:none;position:fixed;top:5%;left:50%;transform:translateX(-50%);width:92%;max-width:650px;max-height:90vh;overflow-y:auto;z-index:1000';
+    modal.innerHTML = ''
+        + '<h2 id="testimonial-modal-title">Adaugă Review</h2>'
+        + '<form id="testimonial-form">'
+        + '<input type="hidden" id="ts-id">'
+        + '<div class="form-grid">'
+        + '<div><label>Autor</label><input type="text" id="ts-author" required></div>'
+        + '<div><label>Rating</label><input type="number" id="ts-rating" min="1" max="5" value="5"></div>'
+        + '<div style="grid-column:span 2"><label>Conținut</label><textarea id="ts-content" rows="4" required></textarea></div>'
+        + '<div><label>Activ</label><select id="ts-active"><option value="1">Da</option><option value="0">Nu</option></select></div>'
+        + '</div>'
+        + '<div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end">'
+        + '<button type="button" onclick="closeTestimonialModal()" class="btn-secondary">Anulează</button>'
+        + '<button type="submit">Salvează</button>'
+        + '</div>'
+        + '</form>';
+    document.body.appendChild(modal);
+    document.getElementById('testimonial-form').addEventListener('submit', saveTestimonial);
+}
+
+async function loadTestimonials() {
+    const list = document.getElementById('testimonials-admin-list');
+    if (!list) return;
+    try {
+        const { data: testimonials, error } = await supabaseClient
+            .from('testimonials')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .order('id', { ascending: false });
+        if (error) throw error;
+
+        list.innerHTML = '';
+        (testimonials || []).forEach(item => {
+            const active = isActiveInt(item.active);
+            const row = document.createElement('div');
+            row.className = 'page-item';
+            row.style.opacity = active ? '1' : '0.55';
+            row.innerHTML = '<div class="page-info"><strong>' + (item.author_name || '—') + '</strong><small>'
+                + 'Rating: ' + (item.rating || 5) + '/5 | ' + (active ? '✅' : '❌') + '<br>' + (item.content || '')
+                + '</small></div>'
+                + '<button class="btn-sm" onclick="editTestimonial(' + item.id + ')">Edit</button> '
+                + '<button class="btn-sm ' + (active ? 'btn-danger' : 'btn-secondary') + '" onclick="' + (active ? 'deactivateTestimonial(' : 'reactivateTestimonial(') + item.id + ')">'
+                + (active ? 'Dezactivează' : 'Reactivează') + '</button>';
+            list.appendChild(row);
+        });
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function openTestimonialModal() {
+    document.getElementById('testimonial-editor').style.display = 'block';
+    document.getElementById('testimonial-modal-overlay').style.display = 'block';
+    document.getElementById('testimonial-modal-title').textContent = 'Adaugă Review';
+    document.getElementById('testimonial-form').reset();
+    document.getElementById('ts-id').value = '';
+    document.getElementById('ts-rating').value = '5';
+    document.getElementById('ts-active').value = '1';
+}
+
+function closeTestimonialModal() {
+    document.getElementById('testimonial-editor').style.display = 'none';
+    document.getElementById('testimonial-modal-overlay').style.display = 'none';
+}
+
+async function editTestimonial(id) {
+    try {
+        const { data, error } = await supabaseClient.from('testimonials').select('*').eq('id', id).maybeSingle();
+        if (error || !data) throw error || new Error('not found');
+        document.getElementById('ts-id').value = data.id;
+        document.getElementById('ts-author').value = data.author_name || '';
+        document.getElementById('ts-content').value = data.content || '';
+        document.getElementById('ts-rating').value = data.rating || 5;
+        document.getElementById('ts-active').value = data.active;
+        document.getElementById('testimonial-modal-title').textContent = 'Editează Review';
+        document.getElementById('testimonial-editor').style.display = 'block';
+        document.getElementById('testimonial-modal-overlay').style.display = 'block';
+    } catch (e) {
+        console.error(e);
+        alert('Eroare!');
+    }
+}
+
+async function saveTestimonial(e) {
+    e.preventDefault();
+    const submitButton = e.submitter || e.target.querySelector('button[type="submit"]');
+    const id = document.getElementById('ts-id').value;
+    await withPending('testimonial-save:' + (id || 'new'), async () => {
+        setButtonBusy(submitButton, true, 'Se salvează...');
+        const payload = {
+            author_name: document.getElementById('ts-author').value,
+            content: document.getElementById('ts-content').value,
+            rating: parseInt(document.getElementById('ts-rating').value, 10) || 5,
+            active: parseInt(document.getElementById('ts-active').value, 10) || 0
+        };
+
         try {
-            const testimonials = await fetchTestimonials();
-            if (testimonials.length) renderTestimonials(testimonials);
-        } catch (e) { console.error('Failed to load testimonials', e); }
-    }
-
-    dismissLoader();
-});
-
-window.addEventListener('languageChanged', () => {
-    updateDynamicTranslations();
-
-    if (cachedMenuItems.length > 0) {
-        const activeFilter = document.querySelector('.filter-btn.active')?.dataset.filter || 'all';
-        renderMenu(activeFilter);
-    }
-
-    if (document.getElementById('about-sections-container')) {
-        fetchAboutSections().then(renderAboutSections).catch(() => {});
-    }
-});
-
-function applyLoaderSettings(config) {
-    const loader = document.getElementById('global-loader');
-    if (!loader) return;
-
-    if (config.loader_enabled === '0') {
-        loader.classList.add('hidden');
-        return;
-    }
-
-    const spinner = document.getElementById('loader-spinner');
-    const text = document.getElementById('loader-text');
-
-    if (config.loader_text) text.textContent = config.loader_text;
-
-    if (config.loader_color === 'green') {
-        spinner.classList.add('green');
-        text.classList.add('green');
-    }
-}
-
-function dismissLoader() {
-    const loader = document.getElementById('global-loader');
-    if (!loader) return;
-    setTimeout(() => loader.classList.add('hidden'), 600);
-}
-
-function applySettingsToUI() {
-    const phone = cachedSettings.phone || '+37361055561';
-    const phoneDigits = phone.replace(/[^0-9+]/g, '');
-    const waMessage = cachedSettings.whatsapp_msg || 'Hello! I would like to place an order from Roll Story.';
-    const waUrl = 'https://wa.me/' + phoneDigits.replace('+', '') + '?text=' + encodeURIComponent(waMessage);
-
-    document.querySelectorAll('#wa-btn, #contact-wa-btn').forEach(btn => { btn.href = waUrl; });
-    document.querySelectorAll('#call-btn, #contact-call-btn').forEach(btn => { btn.href = 'tel:' + phoneDigits; });
-
-    const glovoBtn = document.getElementById('glovo-btn');
-    if (glovoBtn && cachedSettings.glovo_url) {
-        glovoBtn.href = cachedSettings.glovo_url;
-        glovoBtn.style.display = 'flex';
-    const f1 = document.getElementById('hero-feat-1');
-    const f2 = document.getElementById('hero-feat-2');
-    const f3 = document.getElementById('hero-feat-3');
-    if (f1 && cachedSettings.hero_feature_1) f1.textContent = cachedSettings.hero_feature_1;
-    if (f2 && cachedSettings.hero_feature_2) f2.textContent = cachedSettings.hero_feature_2;
-    if (f3 && cachedSettings.hero_feature_3) f3.textContent = cachedSettings.hero_feature_3;
-    }
-}
-
-function updateDynamicTranslations() {
-    const lang = localStorage.getItem('lang') || 'ro';
-    const hoursEl = document.getElementById('hours-display');
-    if (hoursEl && cachedSettings['working_hours_' + lang]) {
-        hoursEl.textContent = cachedSettings['working_hours_' + lang];
-    }
-}
-
-function applyHeroBackground() {
-    const hero = document.querySelector('.hero');
-    if (!hero) return;
-
-    const url = cachedSettings.hero_bg_url;
-    const type = cachedSettings.hero_bg_type;
-    if (!url) return;
-
-    if (type === 'video') {
-        const video = document.createElement('video');
-        video.src = url;
-        video.autoplay = true;
-        video.muted = true;
-        video.loop = true;
-        video.playsInline = true;
-        video.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;';
-        hero.insertBefore(video, hero.firstChild);
-    } else {
-        hero.style.backgroundImage = "url('" + url + "')";
-        hero.style.backgroundSize = 'cover';
-        hero.style.backgroundPosition = 'center';
-    }
-}
-
-function injectDynamicPages(pages) {
-    if (!pages || !pages.length) return;
-
-    const lang = localStorage.getItem('lang') || 'ro';
-    const nav = document.getElementById('nav-links');
-    if (!nav) return;
-
-    const langSwitch = nav.querySelector('.lang-switch');
-
-    pages.forEach(page => {
-        const a = document.createElement('a');
-        a.href = '/page?slug=' + page.slug;
-        a.textContent = page['title_' + lang] || page.title_ro;
-        a.dataset.dynamicPage = page.slug;
-
-        if (langSwitch) nav.insertBefore(a, langSwitch);
-        else nav.appendChild(a);
+            const { error } = id
+                ? await supabaseClient.from('testimonials').update(payload).eq('id', id)
+                : await supabaseClient.from('testimonials').insert([payload]);
+            if (error) throw error;
+            closeTestimonialModal();
+            await loadTestimonials();
+        } catch (err) {
+            console.error(err);
+            alert('Eroare!');
+        } finally {
+            setButtonBusy(submitButton, false);
+        }
     });
 }
 
-function createModalContainers() {
-    if (!document.getElementById('product-modal-overlay')) {
-        const modalHtml = `
-            <div class="modal-overlay" id="product-modal-overlay">
-                <div class="product-modal">
-                    <button class="modal-close" onclick="closeProductModal()">&#10005;</button>
-                    <div class="product-modal-body">
-                        <img class="product-modal-image" id="modal-img" src="" alt="">
-                        <div class="product-modal-info">
-                            <span class="modal-category" id="modal-cat"></span>
-                            <h2 class="modal-title" id="modal-name"></h2>
-                            <div class="modal-price" id="modal-price"></div>
-                            <p class="modal-desc" id="modal-desc"></p>
-                            <div class="modal-ingredients" id="modal-ingredients-box" style="display:none">
-                                <h4 id="modal-ing-label">INGREDIENTE</h4>
-                                <p id="modal-ingredients"></p>
-                            </div>
-                            <a href="#" class="modal-order-btn" id="modal-wa-btn" target="_blank">
-                                <i class="ph ph-whatsapp-logo"></i>
-                                <span id="modal-order-text">Comandă prin WhatsApp</span>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>`;
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-
-        document.getElementById('product-modal-overlay').addEventListener('click', e => {
-            if (e.target.id === 'product-modal-overlay') closeProductModal();
-        });
-
-        document.addEventListener('keydown', e => {
-            if (e.key === 'Escape') {
-                closeProductModal();
-                closeLightbox();
-                closePromo();
-            }
-        });
-    }
-
-    if (!document.getElementById('lightbox-overlay')) {
-        document.body.insertAdjacentHTML('beforeend', `
-            <div class="lightbox-overlay" id="lightbox-overlay" onclick="closeLightbox()">
-                <button class="lightbox-close" onclick="closeLightbox()">&#10005;</button>
-                <img id="lightbox-img" src="" alt="Gallery">
-            </div>`);
-    }
-}
-
-function openProductModal(id) {
-    const item = cachedMenuItems.find(i => i.id === id);
-    if (!item) return;
-
-    const lang = localStorage.getItem('lang') || 'ro';
-    const currency = dictionary[lang]?.val_currency || 'MDL';
-
-    const title       = item['name_' + lang] || item.name_ro;
-    const description = item['desc_' + lang] || '';
-    const ingredients = item['ingredients_' + lang] || '';
-
-    const categoryLabels = {
-        shawarma: dictionary[lang]?.cat_shawarma,
-        crepes:   dictionary[lang]?.cat_crepes,
-        drinks:   dictionary[lang]?.cat_drinks,
-        addons:   dictionary[lang]?.cat_addons
-    };
-
-    const imgEl = document.getElementById('modal-img');
-    imgEl.src = item.image_url || '';
-    imgEl.style.display = item.image_url ? 'block' : 'none';
-
-    document.getElementById('modal-cat').textContent  = categoryLabels[item.category] || item.category;
-    document.getElementById('modal-name').textContent = title;
-    document.getElementById('modal-price').textContent = item.price + ' ' + currency;
-    document.getElementById('modal-desc').textContent = description;
-
-    const ingredientsBox = document.getElementById('modal-ingredients-box');
-    if (ingredients) {
-        document.getElementById('modal-ingredients').textContent = ingredients;
-        ingredientsBox.style.display = 'block';
-    } else {
-        ingredientsBox.style.display = 'none';
-    }
-
-    const phoneDigits = (cachedSettings.phone || '+37361055561').replace(/[^0-9]/g, '');
-    const waMessages = {
-        ro: 'Bună ziua! Aș dori să comand: ' + title + ' (' + item.price + ' ' + currency + ') de la Roll Story.',
-        ru: 'Здравствуйте! Хочу заказать: ' + title + ' (' + item.price + ' ' + currency + ') из Roll Story.',
-        en: 'Hello! I would like to order: ' + title + ' (' + item.price + ' ' + currency + ') from Roll Story.'
-    };
-    document.getElementById('modal-wa-btn').href = 'https://wa.me/' + phoneDigits + '?text=' + encodeURIComponent(waMessages[lang] || waMessages.ro);
-    document.getElementById('modal-wa-btn').onclick = () => {
-        supabaseClient.from('analytics').insert([{
-            event: 'whatsapp_click',
-            item_id: item.id,
-            item_name: item.name_ro,
-            page: window.location.pathname
-        }]).then(() => {});
-    };
-
-    const orderLabels = { ro: 'Comandă prin WhatsApp', ru: 'Заказать через WhatsApp', en: 'Order via WhatsApp' };
-    document.getElementById('modal-order-text').textContent = orderLabels[lang] || orderLabels.ro;
-
-    const ingredientLabels = { ro: 'INGREDIENTE', ru: 'ИНГРЕДИЕНТЫ', en: 'INGREDIENTS' };
-    document.getElementById('modal-ing-label').textContent = ingredientLabels[lang] || ingredientLabels.ro;
-
-     document.getElementById('product-modal-overlay').classList.add('active');
-    document.body.style.overflow = 'hidden';
-
-    supabaseClient.from('analytics').insert([{
-        event: 'product_view',
-        item_id: item.id,
-        item_name: item.name_ro,
-        page: window.location.pathname
-    }]).then(() => {});
-}
-
-function closeProductModal() {
-    document.getElementById('product-modal-overlay')?.classList.remove('active');
-    document.body.style.overflow = '';
-}
-
-function openLightbox(src) {
-    document.getElementById('lightbox-img').src = src;
-    document.getElementById('lightbox-overlay').classList.add('active');
-    document.body.style.overflow = 'hidden';
-}
-
-function closeLightbox() {
-    document.getElementById('lightbox-overlay')?.classList.remove('active');
-    document.body.style.overflow = '';
-}
-
-function renderMenu(filter = 'all') {
-    const isFeatured = !!document.getElementById('featured-grid');
-    const grid = document.getElementById('featured-grid') || document.getElementById('menu-grid');
-    if (!grid) return;
-
-    const lang = localStorage.getItem('lang') || 'ro';
-    const currency = dictionary[lang]?.val_currency || 'MDL';
-
-    let items = [...cachedMenuItems];
-    if (filter !== 'all') items = items.filter(item => item.category === filter);
-    if (isFeatured) {
-        const featuredItems = items.filter(i => i.featured == 1);
-        items = featuredItems.length ? featuredItems : items.slice(0, 6);
-    }
-
-    grid.innerHTML = '';
-
-    if (!items.length) {
-        grid.innerHTML = '<p style="text-align:center;width:100%;color:var(--color-text-muted);grid-column:1/-1">—</p>';
-        return;
-    }
-
-    items.forEach((item, index) => {
-        const title = item['name_' + lang] || item.name_ro;
-        const desc  = item['desc_' + lang] || '';
-
-        const imageHtml = item.image_url
-            ? '<div class="menu-image-wrap"><img src="' + item.image_url + '" alt="' + title + '" class="menu-image" loading="lazy" width="300" height="240"><div class="overlay"></div></div>'
-            : '<div class="menu-image-wrap" style="display:flex;align-items:center;justify-content:center;background:var(--color-bg-panel)"><i class="ph ph-plus-circle" style="font-size:48px;color:var(--color-text-muted)"></i><div class="overlay"></div></div>';
-
-        const truncatedDesc = desc ? '<p class="menu-desc">' + desc.substring(0, 60) + (desc.length > 60 ? '...' : '') + '</p>' : '';
-
-        const card = document.createElement('div');
-        card.className = 'menu-card';
-        card.style.animation = 'fadeInUp 0.6s ' + (index * 0.06) + 's both';
-        card.style.cursor = 'pointer';
-        card.onclick = () => openProductModal(item.id);
-        card.innerHTML = imageHtml
-            + '<div class="price-badge">' + item.price + '<br><small style="font-size:11px;font-weight:400">' + currency + '</small></div>'
-            + '<div class="menu-details"><h3 class="menu-title">' + title + '</h3>' + truncatedDesc + '</div>';
-
-        grid.appendChild(card);
+async function deactivateTestimonial(id) {
+    await withPending('testimonial-deactivate:' + id, async () => {
+        try {
+            const { error } = await supabaseClient.from('testimonials').update({ active: 0 }).eq('id', id);
+            if (error) throw error;
+            await loadTestimonials();
+        } catch (err) {
+            console.error(err);
+            alert('Eroare!');
+        }
     });
 }
 
-function renderGallery(items) {
-    const grid = document.getElementById('gallery-grid');
-    if (!grid) return;
-
-    grid.innerHTML = '';
-
-    if (!items.length) {
-        grid.innerHTML = '<p style="text-align:center;width:100%;color:var(--color-text-muted);grid-column:1/-1">—</p>';
-        return;
-    }
-
-    items.forEach(item => {
-        const img = document.createElement('img');
-        img.src = item.image_url;
-        img.alt = item.type || 'Gallery';
-        img.loading = 'lazy';
-        img.width = 300;
-        img.height = 280;
-        img.className = 'animate-on-scroll';
-        img.onclick = () => openLightbox(item.image_url);
-        grid.appendChild(img);
+async function reactivateTestimonial(id) {
+    await withPending('testimonial-reactivate:' + id, async () => {
+        try {
+            const { error } = await supabaseClient.from('testimonials').update({ active: 1 }).eq('id', id);
+            if (error) throw error;
+            await loadTestimonials();
+        } catch (err) {
+            console.error(err);
+            alert('Eroare!');
+        }
     });
-
-    initScrollAnimations();
 }
 
-function renderAboutSections(sections) {
-    const container = document.getElementById('about-sections-container');
+async function loadAnalytics() {
+    const { data, error } = await supabaseClient
+        .from('analytics')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(500);
+    if (error) return;
+
+    const views = data.filter(e => e.event === 'product_view');
+    const clicks = data.filter(e => e.event === 'whatsapp_click');
+
+    const topViews = {};
+    views.forEach(e => { topViews[e.item_name] = (topViews[e.item_name] || 0) + 1; });
+    const topClicks = {};
+    clicks.forEach(e => { topClicks[e.item_name] = (topClicks[e.item_name] || 0) + 1; });
+
+    const sortedViews = Object.entries(topViews).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    const sortedClicks = Object.entries(topClicks).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+    const container = document.getElementById('analytics-container');
     if (!container) return;
 
-    const lang = localStorage.getItem('lang') || 'ro';
-    container.innerHTML = '';
+    const viewsHtml = sortedViews.map(([name, count]) =>
+        '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #1a3d22"><span>' + name + '</span><strong style="color:#FFE32A">' + count + '</strong></div>'
+    ).join('');
 
-    sections.forEach(section => {
-        const title = section['title_' + lang] || section.title_ro || '';
-        const text  = section['text_' + lang]  || section.text_ro  || '';
-        const imageHtml = section.image_url
-            ? '<div class="about-section-image"><img src="' + section.image_url + '" alt="' + title + '" loading="lazy" width="350" height="280"></div>'
-            : '';
+    const clicksHtml = sortedClicks.map(([name, count]) =>
+        '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #1a3d22"><span>' + name + '</span><strong style="color:#4CAF50">' + count + '</strong></div>'
+    ).join('');
 
-        const div = document.createElement('div');
-        div.className = 'about-section animate-on-scroll';
-        div.innerHTML = '<div class="about-section-text"><h3>' + title + '</h3><p>' + text + '</p></div>' + imageHtml;
-        container.appendChild(div);
-    });
-
-    initScrollAnimations();
+    container.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">'
+        + '<div><h4 style="color:#FFE32A;margin-bottom:12px">👁 Top Produse Vizualizate</h4>' + viewsHtml + '</div>'
+        + '<div><h4 style="color:#4CAF50;margin-bottom:12px">💬 Top Click-uri WhatsApp</h4>' + clicksHtml + '</div>'
+        + '</div>'
+        + '<div style="margin-top:16px;color:#8fa896;font-size:13px">Total vizualizări: <strong>' + views.length + '</strong> &nbsp;|&nbsp; Total click-uri WhatsApp: <strong>' + clicks.length + '</strong></div>';
 }
-
-function initPromoPopup(promo) {
-    if (promo.show_once && sessionStorage.getItem('promo_seen')) return;
-
-    const lang = localStorage.getItem('lang') || 'ro';
-    const title   = promo['title_' + lang]        || promo.title_ro        || '';
-    const text    = promo['text_' + lang]         || promo.text_ro         || '';
-    const btnText = promo['button_text_' + lang]  || promo.button_text_ro  || '';
-    const delay   = (promo.delay_seconds || 3) * 1000;
-
-    setTimeout(() => {
-        const imageHtml  = promo.image_url ? '<img class="promo-card-image" src="' + promo.image_url + '" alt="">' : '';
-        const buttonHtml = promo.button_url ? '<a href="' + promo.button_url + '" class="promo-cta">' + btnText + '</a>' : '';
-
-        const html = `
-            <div class="promo-overlay" id="promo-overlay">
-                <button class="promo-close" onclick="closePromo()">&#10005;</button>
-                <div class="promo-card">
-                    ${imageHtml}
-                    <div class="promo-card-body">
-                        <h2>${title}</h2>
-                        <p>${text}</p>
-                        ${buttonHtml}
-                    </div>
-                </div>
-            </div>`;
-
-        document.body.insertAdjacentHTML('beforeend', html);
-        setTimeout(() => document.getElementById('promo-overlay')?.classList.add('active'), 50);
-
-        if (promo.show_once) sessionStorage.setItem('promo_seen', '1');
-    }, delay);
-}
-
-function closePromo() {
-    const overlay = document.getElementById('promo-overlay');
-    if (!overlay) return;
-    overlay.classList.remove('active');
-    setTimeout(() => overlay.remove(), 500);
-}
-
-function renderTestimonials(items) {
-    const track = document.querySelector('.reviews-section .marquee-track');
-    if (!track) return;
-
-    const renderSet = (entries) => entries.map(item => {
-        const rating = Math.max(1, Math.min(5, Number(item.rating) || 5));
-        const stars = '★★★★★'.slice(0, rating) + '☆☆☆☆☆'.slice(0, 5 - rating);
-        const content = item.content || '';
-        const author = item.author_name || 'Client';
-        return '<div class="review-card"><div class="review-stars">' + stars + '</div><p class="review-text">"' + content + '"</p><div class="review-author"><i class="ph-fill ph-user-circle"></i> ' + author + '</div></div>';
-    }).join('');
-
-    track.innerHTML = renderSet(items) + renderSet(items);
-}
-
-function initScrollAnimations() {
-    const observer = new IntersectionObserver(entries => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('visible');
-                observer.unobserve(entry.target);
-            }
-        });
-    }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
-
-    document.querySelectorAll('.animate-on-scroll:not(.visible)').forEach(el => observer.observe(el));
-}
-
-function initHeaderScroll() {
-    const header = document.getElementById('main-header');
-    if (!header) return;
-    window.addEventListener('scroll', () => {
-        header.classList.toggle('scrolled', window.scrollY > 50);
-    }, { passive: true });
-}
-
-function toggleMobileNav() {
-    document.getElementById('nav-links')?.classList.toggle('open');
-    document.getElementById('hamburger')?.classList.toggle('active');
-}
-
-document.addEventListener('click', e => {
-    if (e.target.closest('.nav-links a:not(.lang-btn)')) {
-        const nav = document.getElementById('nav-links');
-        const hamburger = document.getElementById('hamburger');
-        if (nav?.classList.contains('open')) {
-            nav.classList.remove('open');
-            hamburger?.classList.remove('active');
-        }
-    }
-});
