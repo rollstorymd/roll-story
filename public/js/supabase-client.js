@@ -3,12 +3,15 @@
         console.error('Supabase JS client not loaded');
         return;
     }
+
     const url = window.SUPABASE_URL;
     const key = window.SUPABASE_ANON_KEY;
+
     if (!url || !key) {
         console.error('Missing SUPABASE_URL or SUPABASE_ANON_KEY in /js/env.js');
         return;
     }
+
     const client = window.supabase.createClient(url, key, {
         auth: {
             persistSession: true,
@@ -17,6 +20,7 @@
             storageKey: 'rollstory.auth'
         }
     });
+
     window.supabaseClient = client;
     window.sb = client;
     console.info('Supabase client ready. Use window.supabaseClient for queries.');
@@ -27,52 +31,23 @@
         return out;
     };
 
-    window.sbUploadImage = async function (file, label) {
+    window.sbUploadImage = async function (file) {
         if (!file) return null;
+
         const dot = file.name.lastIndexOf('.');
-        const ext = dot >= 0 ? file.name.slice(dot).toLowerCase() : '';
+        const ext = dot >= 0 ? file.name.slice(dot) : '';
         const suffix = Date.now() + '-' + Math.random().toString(36).slice(2);
+        const filename = 'img-' + suffix + ext;
 
-        let slug = '';
-        if (label) {
-            slug = label
-                .toLowerCase()
-                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-                .replace(/[^a-z0-9]+/g, '-')
-                .replace(/^-|-$/g, '')
-                .slice(0, 40);
-            slug = '-' + slug;
-        }
-
-        const filename = 'img-' + suffix + slug + ext;
         const { error } = await window.supabaseClient.storage.from('images').upload(filename, file, {
             contentType: file.type || undefined,
             cacheControl: '3600',
             upsert: false
         });
         if (error) throw error;
+
         const { data } = window.supabaseClient.storage.from('images').getPublicUrl(filename);
         return data.publicUrl;
-    };
-
-    window.sbGetStoragePath = function (publicUrl) {
-        if (!publicUrl) return null;
-        try {
-            const url = new URL(publicUrl);
-            const marker = '/object/public/images/';
-            const idx = url.pathname.indexOf(marker);
-            if (idx === -1) return null;
-            return url.pathname.slice(idx + marker.length);
-        } catch {
-            return null;
-        }
-    };
-
-    window.sbDeleteImage = async function (publicUrl) {
-        const path = window.sbGetStoragePath(publicUrl);
-        if (!path) return;
-        const { error } = await window.supabaseClient.storage.from('images').remove([path]);
-        if (error) console.warn('sbDeleteImage error:', error);
     };
 
     window.sbInferMediaType = function (file) {
