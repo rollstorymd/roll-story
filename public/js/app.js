@@ -65,14 +65,14 @@ window.addEventListener('DOMContentLoaded', () => {
     loadPages();
     loadTestimonials();
 
-    document.getElementById('settings-form').addEventListener('submit', saveSettings);
-    document.getElementById('menu-item-form').addEventListener('submit', saveMenuItem);
-    document.getElementById('gallery-form').addEventListener('submit', uploadGallery);
-    document.getElementById('about-form').addEventListener('submit', saveAboutSection);
-    document.getElementById('hero-bg-form').addEventListener('submit', uploadHeroBg);
-    document.getElementById('promo-form').addEventListener('submit', savePromo);
-    document.getElementById('loader-form').addEventListener('submit', saveLoader);
-    document.getElementById('page-form').addEventListener('submit', savePage);
+    document.getElementById('settings-form')?.addEventListener('submit', saveSettings);
+    document.getElementById('menu-item-form')?.addEventListener('submit', saveMenuItem);
+    document.getElementById('gallery-form')?.addEventListener('submit', uploadGallery);
+    document.getElementById('about-form')?.addEventListener('submit', saveAboutSection);
+    document.getElementById('hero-bg-form')?.addEventListener('submit', uploadHeroBg);
+    document.getElementById('promo-form')?.addEventListener('submit', savePromo);
+    document.getElementById('loader-form')?.addEventListener('submit', saveLoader);
+    document.getElementById('page-form')?.addEventListener('submit', savePage);
 });
 
 async function fetchSettingsMap() {
