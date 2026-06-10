@@ -512,7 +512,7 @@ function renderMenu(filter = 'all') {
         const desc  = item['desc_' + lang] || '';
 
         const imageHtml = item.image_url
-            ? '<div class="menu-image-wrap"><img src="' + item.image_url + '" alt="' + title + '" class="menu-image" loading="lazy"><div class="overlay"></div></div>'
+            ? '<div class="menu-image-wrap"><img src="' + item.image_url + '" alt="' + title + '" class="menu-image" loading="lazy" width="300" height="240"><div class="overlay"></div></div>'
             : '<div class="menu-image-wrap" style="display:flex;align-items:center;justify-content:center;background:var(--color-bg-panel)"><i class="ph ph-plus-circle" style="font-size:48px;color:var(--color-text-muted)"></i><div class="overlay"></div></div>';
 
         const truncatedDesc = desc ? '<p class="menu-desc">' + desc.substring(0, 60) + (desc.length > 60 ? '...' : '') + '</p>' : '';
@@ -546,6 +546,8 @@ function renderGallery(items) {
         img.src = item.image_url;
         img.alt = item.type || 'Gallery';
         img.loading = 'lazy';
+        img.width = 300;
+        img.height = 280;
         img.className = 'animate-on-scroll';
         img.onclick = () => openLightbox(item.image_url);
         grid.appendChild(img);
@@ -565,7 +567,7 @@ function renderAboutSections(sections) {
         const title = section['title_' + lang] || section.title_ro || '';
         const text  = section['text_' + lang]  || section.text_ro  || '';
         const imageHtml = section.image_url
-            ? '<div class="about-section-image"><img src="' + section.image_url + '" alt="' + title + '" loading="lazy"></div>'
+            ? '<div class="about-section-image"><img src="' + section.image_url + '" alt="' + title + '" loading="lazy" width="350" height="280"></div>'
             : '';
 
         const div = document.createElement('div');
