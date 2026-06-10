@@ -82,6 +82,7 @@ async function fetchSettingsMap() {
 }
 
 async function loadSettings() {
+    if (!document.getElementById("set-phone")) return;
     try {
         const s = await fetchSettingsMap();
         document.getElementById('set-phone').value      = s.phone || '';
@@ -116,6 +117,7 @@ async function saveSettings(e) {
 }
 
 async function loadHeroBgPreview() {
+    if (!document.getElementById("hero-bg-preview")) return;
     try {
         const s = await fetchSettingsMap();
         const p = document.getElementById('hero-bg-preview');
@@ -184,6 +186,7 @@ async function deleteHeroBg() {
 }
 
 async function loadMenu() {
+    if (!document.getElementById("menu-table-body")) return;
     try {
         const { data: items, error } = await supabaseClient
             .from('menu_items')
@@ -359,6 +362,7 @@ async function reactivateMenuItem(id) {
 }
 
 async function loadGallery() {
+    if (!document.getElementById("gallery-manage-grid")) return;
     try {
         const { data: items, error } = await supabaseClient
             .from('gallery')
@@ -426,6 +430,7 @@ async function deleteGalleryItem(id, imageUrl) {
 }
 
 async function loadAboutSections() {
+    if (!document.getElementById("about-sections-admin")) return;
     try {
         const { data: secs, error } = await supabaseClient
             .from('about_sections')
@@ -550,6 +555,7 @@ async function deleteAboutSection(id, imageUrl) {
 }
 
 async function loadSocial() {
+    if (!document.getElementById("social-admin-list")) return;
     try {
         const { data: links, error } = await supabaseClient
             .from('social_links')
@@ -593,6 +599,7 @@ async function saveSocial() {
 }
 
 async function loadPromo() {
+    if (!document.getElementById("promo-active")) return;
     try {
         const { data: p, error } = await supabaseClient
             .from('promo_popup')
@@ -674,6 +681,7 @@ async function savePromo(e) {
 }
 
 async function loadLoader() {
+    if (!document.getElementById("loader-enabled")) return;
     try {
         const { data, error } = await supabaseClient.from('settings').select('key,value').like('key', 'loader_%');
         if (error) throw error;
@@ -704,6 +712,7 @@ async function saveLoader(e) {
 }
 
 async function loadPages() {
+    if (!document.getElementById("pages-admin-list")) return;
     try {
         const { data: pages, error } = await supabaseClient
             .from('static_pages')
@@ -921,6 +930,7 @@ function ensureTestimonialsAdminUI() {
 }
 
 async function loadTestimonials() {
+    if (!document.getElementById("testimonials-admin-list")) return;
     const list = document.getElementById('testimonials-admin-list');
     if (!list) return;
     try {
